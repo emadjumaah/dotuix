@@ -1,6 +1,5 @@
 // AUTO-GENERATED FILE. DO NOT EDIT DIRECTLY.
-// Source: ../dotuix-internal/packages/vscode-extension/contracts/manifest.contract.source.json
-// Generator: ../dotuix-internal/packages/vscode-extension/scripts/generate-contract-slice.mjs
+// Generated from the dotuix manifest contract. Regenerate via the contract slice generator.
 
 export const MANIFEST_UIX_VERSIONS = [
   "1.0"
@@ -42,7 +41,7 @@ export const MANIFEST_SIGNATURE_ALGORITHMS = [
   "Ed25519"
 ] as const;
 
-export const MANIFEST_SECURITY_KDF_MIN_ITERATIONS = 10000;
+export const MANIFEST_SECURITY_KDF_MIN_ITERATIONS = 100000;
 
 export const MANIFEST_SECURITY_KDF_DEFAULT_ITERATIONS = 200000;
 

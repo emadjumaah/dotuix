@@ -1,7 +1,7 @@
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
-import { dirname } from "node:path";
-import { unzipSync } from "fflate";
-import { normalizeArchivePath, resolveSafeChild } from "./paths.js";
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
+import { unzipSync } from 'fflate';
+import { normalizeArchivePath, resolveSafeChild } from './paths.js';
 
 /**
  * Unpack a `.uix` archive to a directory on disk.
@@ -20,7 +20,7 @@ export async function unpack(uixPath: string, outDir: string): Promise<void> {
   const files = unpackBuffer(data);
 
   for (const [filename, content] of Object.entries(files)) {
-    if (filename.endsWith("/")) continue;
+    if (filename.endsWith('/')) continue;
     const outPath = resolveSafeChild(outDir, filename);
     mkdirSync(dirname(outPath), { recursive: true });
     writeFileSync(outPath, content);

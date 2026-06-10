@@ -1,7 +1,7 @@
-export { pack, packBuffer } from "./pack.js";
-export { unpack, unpackBuffer } from "./unpack.js";
-export { normalizeArchivePath, resolveSafeChild } from "./paths.js";
-export { validate, validateBuffer } from "./validate.js";
+export { pack, packBuffer } from './pack.js';
+export { unpack, unpackBuffer } from './unpack.js';
+export { normalizeArchivePath, resolveSafeChild } from './paths.js';
+export { validate, validateBuffer } from './validate.js';
 export {
   readManifest,
   readManifestFromBuffer,
@@ -13,13 +13,13 @@ export {
   configureSqlJs,
   UIXDataDB,
   UIXStateDB,
-} from "./db.js";
-export type { CreateStateOptions, DataRecord } from "./db.js";
+} from './db.js';
+export type { CreateStateOptions, DataRecord } from './db.js';
 export {
   parseManifest,
   safeParseManifest,
   ManifestSchema,
-} from "./manifest.js";
+} from './manifest.js';
 export {
   MANIFEST_UIX_VERSIONS,
   MANIFEST_MODES,
@@ -30,7 +30,7 @@ export {
   MANIFEST_SECURITY_KDF_MIN_ITERATIONS,
   MANIFEST_SECURITY_KDF_DEFAULT_ITERATIONS,
   MANIFEST_SIGNATURE_ALGORITHMS,
-} from "./generated/manifest-contract.generated.js";
+} from './generated/manifest-contract.generated.js';
 export type {
   ManifestUixVersion,
   ManifestMode,
@@ -42,7 +42,7 @@ export type {
   ManifestSecurityContract,
   ManifestSignatureContract,
   ManifestAiContract,
-} from "./generated/manifest-contract.generated.js";
+} from './generated/manifest-contract.generated.js';
 export type {
   Manifest,
   UIXRecord,
@@ -52,7 +52,12 @@ export type {
   ValidateResult,
   Permission,
   FindQuery,
-} from "./types.js";
+  CountQuery,
+  OrderByClause,
+  OrderDirection,
+  WhereValue,
+  TransactionOp,
+} from './types.js';
 export {
   generateKeyPair,
   publicKeyFromSeed,
@@ -61,19 +66,19 @@ export {
   sign,
   verifyBuffer,
   verify,
-} from "./sign.js";
-export type { KeyPair, VerifyResult } from "./sign.js";
+} from './sign.js';
+export type { KeyPair, VerifyResult } from './sign.js';
 
-import { pack, packBuffer } from "./pack.js";
-import { unpack, unpackBuffer } from "./unpack.js";
-import { validate, validateBuffer } from "./validate.js";
 import {
-  readManifest,
-  readManifestFromBuffer,
+  createState,
   openData,
   openDataBuffer,
-  createState,
-} from "./db.js";
+  readManifest,
+  readManifestFromBuffer,
+} from './db.js';
+import { pack, packBuffer } from './pack.js';
+import { unpack, unpackBuffer } from './unpack.js';
+import { validate, validateBuffer } from './validate.js';
 
 /**
  * The `UIX` namespace provides the primary API for working with `.uix` archives.

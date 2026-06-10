@@ -5,9 +5,7 @@
   "version": "1.0.0",
   "entry": "index.html",
   "mode": "kiosk",
-  "permissions": [
-    "local-storage"
-  ],
+  "permissions": ["local-storage"],
   "network": "blocked",
   "theme": {
     "color": "#c8a96e",

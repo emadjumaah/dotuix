@@ -1,3 +1,4 @@
+import type { UIXRecord } from '@dotuix/types';
 /**
  * Report.tsx
  *
@@ -11,8 +12,7 @@
  *
  * Replace the sample data model and rendering below with your own.
  */
-import { useEffect, useState } from "react";
-import type { UIXRecord } from "@dotuix/types";
+import { useEffect, useState } from 'react';
 
 interface RowData {
   label: string;
@@ -26,7 +26,7 @@ export function Report() {
 
   useEffect(() => {
     uix.state
-      .find({ type: "row", orderBy: "created_at" })
+      .find({ type: 'row', orderBy: 'created_at' })
       .then((records: UIXRecord[]) => {
         setRows(records.map((r) => JSON.parse(r.body as string) as RowData));
         setLoading(false);
@@ -47,8 +47,8 @@ export function Report() {
           <p className="muted">Loading…</p>
         ) : rows.length === 0 ? (
           <p className="muted">
-            No data. Insert records with type <code>row</code> and fields{" "}
-            <code>{"{ label, value }"}</code>.
+            No data. Insert records with type <code>row</code> and fields{' '}
+            <code>{'{ label, value }'}</code>.
           </p>
         ) : (
           <table>

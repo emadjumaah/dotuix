@@ -6,7 +6,7 @@ import type {
   ManifestSecurityKdf,
   ManifestSignatureAlgorithm,
   ManifestUixVersion,
-} from "./generated/manifest-contract.generated.js";
+} from './generated/manifest-contract.generated.js';
 
 export type Permission = ManifestPermission;
 
@@ -157,18 +157,66 @@ export interface ValidateResult {
   warnings: string[];
 }
 
-/** Query parameters for the bridge find() method. */
+/** Sort direction for {@link OrderByClause}. */
+export type OrderDirection = 'asc' | 'desc';
+
+/** A single `{ field, direction }` ordering term. */
+export interface OrderByClause {
+  field: string;
+  direction: OrderDirection;
+}
+
+/**
+ * A `where` filter value. Either a plain scalar (shorthand for equality) or an
+ * operator object such as `{ gte: 10 }`, `{ in: ["a", "b"] }`, `{ is_null: true }`.
+ */
+export type WhereValue =
+  | string
+  | number
+  | boolean
+  | null
+  | {
+      eq?: unknown;
+      neq?: unknown;
+      gt?: unknown;
+      gte?: unknown;
+      lt?: unknown;
+      lte?: unknown;
+      like?: string;
+      in?: unknown[];
+      is_null?: boolean;
+    };
+
+/** Query parameters for the bridge find() method (spec §4.4). */
 export interface FindQuery {
   type: string;
   /**
-   * Field-level filters applied via json_extract on the body column.
-   * Keys must be alphanumeric (underscores allowed). Values are compared with =.
+   * Field-level filters. Each value is a scalar (equality shorthand) or an
+   * operator object (`eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `like`, `in`,
+   * `is_null`). Keys are top-level columns or body field names. Field names
+   * must be alphanumeric (underscores allowed).
    */
-  where?: Record<string, unknown>;
+  where?: Record<string, WhereValue>;
   /**
    * Sort by a top-level column ('id' | 'type' | 'created_at' | 'updated_at')
-   * or a body field name (applied via json_extract).
+   * or a body field name. A string is shorthand for ascending; pass a
+   * `{ field, direction }` object or an array of them for multi-field ordering.
    */
-  orderBy?: string;
+  orderBy?: string | OrderByClause | OrderByClause[];
   limit?: number;
+  /** Rows to skip before returning results (pagination). */
+  offset?: number;
 }
+
+/** Filter accepted by count() — the same `type`/`where` shape as find(). */
+export interface CountQuery {
+  type: string;
+  where?: Record<string, WhereValue>;
+}
+
+/** A single operation in a {@link UIXStateDB.transaction} batch (spec §4.5). */
+export type TransactionOp =
+  | { op: 'insert'; type: string; id?: string; body: unknown }
+  | { op: 'upsert'; id: string; type: string; body: unknown }
+  | { op: 'update'; id: string; body: unknown }
+  | { op: 'delete'; id: string };

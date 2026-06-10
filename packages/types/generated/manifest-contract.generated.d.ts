@@ -1,6 +1,5 @@
 // AUTO-GENERATED FILE. DO NOT EDIT DIRECTLY.
-// Source: ../dotuix-internal/packages/vscode-extension/contracts/manifest.contract.source.json
-// Generator: ../dotuix-internal/packages/vscode-extension/scripts/generate-contract-slice.mjs
+// Generated from the dotuix manifest contract. Regenerate via the contract slice generator.
 
 export type ManifestUixVersion = "1.0";
 export type ManifestMode = "kiosk" | "window";

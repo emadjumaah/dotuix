@@ -1,91 +1,34 @@
-import {
-  useState,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-} from "react";
-import { convertFileSrc, invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
-import DbViewer from "./components/DbViewer";
-import { emitDesktopEvent } from "./observability.js";
+import { convertFileSrc, invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import DbViewer from './components/DbViewer';
+import { emitDesktopEvent } from './observability.js';
 
 function BrandIcon() {
   return (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <rect
-        x="3"
-        y="3"
-        width="8"
-        height="8"
-        rx="2"
-        fill="#fff"
-        opacity="0.95"
-      />
-      <rect
-        x="13"
-        y="3"
-        width="8"
-        height="8"
-        rx="2"
-        fill="#fff"
-        opacity="0.95"
-      />
-      <rect
-        x="3"
-        y="13"
-        width="8"
-        height="8"
-        rx="2"
-        fill="#fff"
-        opacity="0.95"
-      />
-      <rect
-        x="13"
-        y="13"
-        width="8"
-        height="8"
-        rx="2"
-        fill="#fff"
-        opacity="0.45"
-      />
+      <rect x="3" y="3" width="8" height="8" rx="2" fill="#fff" opacity="0.95" />
+      <rect x="13" y="3" width="8" height="8" rx="2" fill="#fff" opacity="0.95" />
+      <rect x="3" y="13" width="8" height="8" rx="2" fill="#fff" opacity="0.95" />
+      <rect x="13" y="13" width="8" height="8" rx="2" fill="#fff" opacity="0.45" />
     </svg>
   );
 }
 
 function Spinner({ size = 16 }: { size?: number }) {
   return (
-    <svg
-      className="spinner"
-      width={size}
-      height={size}
-      viewBox="0 0 16 16"
-      fill="none"
-      aria-hidden
-    >
-      <circle
-        cx="8"
-        cy="8"
-        r="6"
-        stroke="currentColor"
-        strokeWidth="2"
-        opacity="0.25"
-      />
-      <path
-        d="M8 2a6 6 0 0 1 6 6"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
+    <svg className="spinner" width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden>
+      <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" opacity="0.25" />
+      <path d="M8 2a6 6 0 0 1 6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }
 
 type LoadResult =
-  | { status: "loaded"; manifest: string; path: string }
-  | { status: "pin_required"; app_name: string; app_id: string }
+  | { status: 'loaded'; manifest: string; path: string }
+  | { status: 'pin_required'; app_name: string; app_id: string }
   | {
-      status: "license_required";
+      status: 'license_required';
       app_name: string;
       app_id: string;
       device_id: string;
@@ -96,7 +39,7 @@ type Manifest = {
   name?: string;
   entry?: string;
   expires?: string | null;
-  network?: "blocked" | "allowed";
+  network?: 'blocked' | 'allowed';
   permissions?: string[];
   sync?: {
     endpoint?: string;
@@ -106,18 +49,18 @@ type Manifest = {
 };
 
 type ViewerState =
-  | { status: "idle" }
-  | { status: "loading" }
-  | { status: "pin_required"; appName: string }
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'pin_required'; appName: string }
   | {
-      status: "license_required";
+      status: 'license_required';
       appName: string;
       appId: string;
       deviceId: string;
       uixPath: string;
     }
   | {
-      status: "loaded";
+      status: 'loaded';
       manifestName: string;
       appPath: string;
       entryPath: string;
@@ -126,7 +69,7 @@ type ViewerState =
       networkAllowed: boolean;
       autoSyncEnabled: boolean;
     }
-  | { status: "error"; message: string };
+  | { status: 'error'; message: string };
 
 type FrameDiagnostic = {
   ts: number;
@@ -138,76 +81,76 @@ const FRAME_INIT_TIMEOUT_MS = 8000;
 const AUTO_SYNC_INTERVAL_MS = 10_000;
 
 function normalizeEntryPath(entry: string | undefined): string {
-  const raw = (entry ?? "index.html").trim();
-  if (!raw) return "index.html";
-  return raw.replace(/\\/g, "/").replace(/^\/+/, "");
+  const raw = (entry ?? 'index.html').trim();
+  if (!raw) return 'index.html';
+  return raw.replace(/\\/g, '/').replace(/^\/+/, '');
 }
 
 function normalizeFallbackAbsolutePath(path: string): string {
   // asset.localhost URL conversion expects slash-separated paths on Windows.
-  return path.replace(/\\/g, "/");
+  return path.replace(/\\/g, '/');
 }
 
 function toAssetLocalhostUrl(path: string): string {
-  const normalized = normalizeFallbackAbsolutePath(path).replace(/^\/+/, "");
+  const normalized = normalizeFallbackAbsolutePath(path).replace(/^\/+/, '');
   const encodedPath = normalized
-    .split("/")
+    .split('/')
     .filter((segment) => segment.length > 0)
     .map((segment) => encodeURIComponent(segment))
-    .join("/");
+    .join('/');
   return `http://asset.localhost/${encodedPath}`;
 }
 
 function isWindowsHost(): boolean {
-  if (typeof navigator === "undefined") return false;
+  if (typeof navigator === 'undefined') return false;
   return /windows/i.test(`${navigator.userAgent} ${navigator.platform}`);
 }
 
 function encodeEntryUrlPath(entryPath: string): string {
   return entryPath
-    .split("/")
+    .split('/')
     .filter((segment) => segment.length > 0)
     .map((segment) => encodeURIComponent(segment))
-    .join("/");
+    .join('/');
 }
 
 function handleLoadResult(result: LoadResult): ViewerState {
-  if (result.status === "loaded") {
+  if (result.status === 'loaded') {
     const m = JSON.parse(result.manifest) as Manifest;
     const permissions = m.permissions ?? [];
     const autoSyncEnabled =
-      permissions.includes("local-sync") &&
-      typeof m.sync?.secret === "string" &&
+      permissions.includes('local-sync') &&
+      typeof m.sync?.secret === 'string' &&
       m.sync.secret.trim().length > 0;
 
     return {
-      status: "loaded",
-      manifestName: m.name ?? "UIX App",
+      status: 'loaded',
+      manifestName: m.name ?? 'UIX App',
       appPath: result.path,
       entryPath: normalizeEntryPath(m.entry),
       expires: m.expires ?? undefined,
       signed: !!m.signature,
-      networkAllowed: m.network === "allowed",
+      networkAllowed: m.network === 'allowed',
       autoSyncEnabled,
     };
   }
-  if (result.status === "license_required") {
+  if (result.status === 'license_required') {
     return {
-      status: "license_required",
+      status: 'license_required',
       appName: result.app_name,
       appId: result.app_id,
       deviceId: result.device_id,
       uixPath: result.uix_path,
     };
   }
-  return { status: "pin_required", appName: result.app_name };
+  return { status: 'pin_required', appName: result.app_name };
 }
 
 function daysUntil(dateStr: string): number {
   return Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86_400_000);
 }
 
-const RECENT_FILES_KEY = "dotuix.viewer.recent.files";
+const RECENT_FILES_KEY = 'dotuix.viewer.recent.files';
 
 function readRecentFiles(): string[] {
   try {
@@ -215,7 +158,7 @@ function readRecentFiles(): string[] {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter((p): p is string => typeof p === "string");
+    return parsed.filter((p): p is string => typeof p === 'string');
   } catch {
     return [];
   }
@@ -235,12 +178,10 @@ function filenameFromPath(path: string): string {
 }
 
 export default function App() {
-  const [state, setState] = useState<ViewerState>({ status: "idle" });
-  const [recentFiles, setRecentFiles] = useState<string[]>(() =>
-    readRecentFiles(),
-  );
-  const [pin, setPin] = useState("");
-  const [pinError, setPinError] = useState("");
+  const [state, setState] = useState<ViewerState>({ status: 'idle' });
+  const [recentFiles, setRecentFiles] = useState<string[]>(() => readRecentFiles());
+  const [pin, setPin] = useState('');
+  const [pinError, setPinError] = useState('');
   const [isDragOver, setIsDragOver] = useState(false);
   const [dbOpen, setDbOpen] = useState(false);
   const [dbStatePath, setDbStatePath] = useState<string | null>(null);
@@ -253,77 +194,69 @@ export default function App() {
   const [frameBridgeBootstrapped, setFrameBridgeBootstrapped] = useState(false);
   const [frameDomLoaded, setFrameDomLoaded] = useState(false);
   const [frameWindowLoaded, setFrameWindowLoaded] = useState(false);
-  const [frameDiagnostics, setFrameDiagnostics] = useState<FrameDiagnostic[]>(
-    [],
-  );
+  const [frameDiagnostics, setFrameDiagnostics] = useState<FrameDiagnostic[]>([]);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const stateRef = useRef(state);
   const autoSyncLastErrorAtRef = useRef(0);
-  const loadedEntryPath = state.status === "loaded" ? state.entryPath : "";
-  const loadedAppPath = state.status === "loaded" ? state.appPath : "";
-  const preferTempFallbackFirst = state.status === "loaded" && isWindowsHost();
+  const loadedEntryPath = state.status === 'loaded' ? state.entryPath : '';
+  const loadedAppPath = state.status === 'loaded' ? state.appPath : '';
+  const preferTempFallbackFirst = state.status === 'loaded' && isWindowsHost();
   const protocolFrameSrc =
-    state.status === "loaded"
-      ? `uix://localhost/${encodeEntryUrlPath(state.entryPath)}`
-      : "";
+    state.status === 'loaded' ? `uix://localhost/${encodeEntryUrlPath(state.entryPath)}` : '';
   const activeFrameSrc =
-    state.status === "loaded"
-      ? frameSrcOverride ?? (preferTempFallbackFirst ? "" : protocolFrameSrc)
-      : "";
+    state.status === 'loaded'
+      ? (frameSrcOverride ?? (preferTempFallbackFirst ? '' : protocolFrameSrc))
+      : '';
   const waitingForFallbackSource =
-    state.status === "loaded" && preferTempFallbackFirst && !frameSrcOverride;
+    state.status === 'loaded' && preferTempFallbackFirst && !frameSrcOverride;
   const loadedFrameKey =
-    state.status === "loaded"
+    state.status === 'loaded'
       ? `${loadedAppPath}|${loadedEntryPath}|${frameReloadNonce}|${activeFrameSrc}`
-      : "";
+      : '';
 
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
 
   const pushFrameDiagnostic = useCallback((stage: string, detail: string) => {
-    setFrameDiagnostics((prev) =>
-      [...prev, { ts: Date.now(), stage, detail }].slice(-12),
-    );
+    setFrameDiagnostics((prev) => [...prev, { ts: Date.now(), stage, detail }].slice(-12));
   }, []);
 
   const startTempFileFallback = useCallback(
     (trigger: string, detail: string): boolean => {
-      if (stateRef.current.status !== "loaded") return false;
+      if (stateRef.current.status !== 'loaded') return false;
       if (frameFallbackPreparing) return true;
       if (frameSrcOverride !== null) return false;
 
       setFrameFallbackPreparing(true);
-      pushFrameDiagnostic("viewer.fallback_prepare", `${trigger}: ${detail}`);
+      pushFrameDiagnostic('viewer.fallback_prepare', `${trigger}: ${detail}`);
 
-      void invoke<string>("prepare_iframe_fallback_entry", {
+      void invoke<string>('prepare_iframe_fallback_entry', {
         entryPath: loadedEntryPath,
       })
         .then((entryFilePath) => {
-          const normalizedEntryFilePath =
-            normalizeFallbackAbsolutePath(entryFilePath);
+          const normalizedEntryFilePath = normalizeFallbackAbsolutePath(entryFilePath);
           const fallbackSrc = isWindowsHost()
             ? toAssetLocalhostUrl(normalizedEntryFilePath)
             : convertFileSrc(normalizedEntryFilePath);
           setFrameSrcOverride(fallbackSrc);
           setFrameFatal(null);
           pushFrameDiagnostic(
-            "viewer.fallback_ready",
+            'viewer.fallback_ready',
             `Loaded temporary entry file: ${entryFilePath}`,
           );
         })
         .catch((error) => {
           const message = `Fallback preparation failed: ${String(error)}`;
-          pushFrameDiagnostic("viewer.fallback_failed", message);
+          pushFrameDiagnostic('viewer.fallback_failed', message);
           setFrameFatal(
             (prev) =>
-              prev ??
-              "The app page did not initialize correctly. Open diagnostics and retry.",
+              prev ?? 'The app page did not initialize correctly. Open diagnostics and retry.',
           );
           emitDesktopEvent({
-            code: "desktop.viewer.frame_init_timeout",
-            severity: "error",
-            reason: "fallback_prepare_failed",
+            code: 'desktop.viewer.frame_init_timeout',
+            severity: 'error',
+            reason: 'fallback_prepare_failed',
             metadata: {
               entryPath: loadedEntryPath,
               error: String(error),
@@ -336,12 +269,7 @@ export default function App() {
 
       return true;
     },
-    [
-      frameFallbackPreparing,
-      frameSrcOverride,
-      loadedEntryPath,
-      pushFrameDiagnostic,
-    ],
+    [frameFallbackPreparing, frameSrcOverride, loadedEntryPath, pushFrameDiagnostic],
   );
 
   useEffect(() => {
@@ -364,18 +292,15 @@ export default function App() {
     setFrameDomLoaded(false);
     setFrameWindowLoaded(false);
     setFrameDiagnostics([]);
-    pushFrameDiagnostic(
-      "viewer.entry_requested",
-      `entry=${loadedEntryPath} src=${activeFrameSrc}`,
-    );
+    pushFrameDiagnostic('viewer.entry_requested', `entry=${loadedEntryPath} src=${activeFrameSrc}`);
   }, [loadedFrameKey, loadedEntryPath, activeFrameSrc, pushFrameDiagnostic]);
 
   useEffect(() => {
     if (!waitingForFallbackSource) return;
 
     startTempFileFallback(
-      "windows_primary",
-      "Using temporary fallback source as primary mode on Windows.",
+      'windows_primary',
+      'Using temporary fallback source as primary mode on Windows.',
     );
   }, [waitingForFallbackSource, startTempFileFallback]);
 
@@ -386,13 +311,12 @@ export default function App() {
       if (frameIframeLoaded && frameBridgeBootstrapped) return;
 
       if (frameIframeLoaded && !frameBridgeBootstrapped) {
-        const detail =
-          "Iframe loaded but bridge bootstrap signal is missing; keeping app visible.";
-        pushFrameDiagnostic("viewer.init_timeout_soft", detail);
+        const detail = 'Iframe loaded but bridge bootstrap signal is missing; keeping app visible.';
+        pushFrameDiagnostic('viewer.init_timeout_soft', detail);
         emitDesktopEvent({
-          code: "desktop.viewer.frame_init_timeout",
-          severity: "warn",
-          reason: "bridge_bootstrap_missing_non_blocking",
+          code: 'desktop.viewer.frame_init_timeout',
+          severity: 'warn',
+          reason: 'bridge_bootstrap_missing_non_blocking',
           metadata: {
             entryPath: loadedEntryPath,
             source: activeFrameSrc,
@@ -402,28 +326,26 @@ export default function App() {
       }
 
       const missing: string[] = [];
-      if (!frameIframeLoaded) missing.push("iframe load event");
-      if (!frameBridgeBootstrapped) missing.push("bridge bootstrap");
+      if (!frameIframeLoaded) missing.push('iframe load event');
+      if (!frameBridgeBootstrapped) missing.push('bridge bootstrap');
 
-      const detail = `Missing signals: ${missing.join(", ")}`;
-      pushFrameDiagnostic("viewer.init_timeout", detail);
+      const detail = `Missing signals: ${missing.join(', ')}`;
+      pushFrameDiagnostic('viewer.init_timeout', detail);
 
-      if (startTempFileFallback("init_timeout", detail)) {
+      if (startTempFileFallback('init_timeout', detail)) {
         return;
       }
 
       setFrameFatal(
-        (prev) =>
-          prev ??
-          "The app page did not initialize correctly. Open diagnostics and retry.",
+        (prev) => prev ?? 'The app page did not initialize correctly. Open diagnostics and retry.',
       );
       emitDesktopEvent({
-        code: "desktop.viewer.frame_init_timeout",
-        severity: "error",
-        reason: "init_timeout",
+        code: 'desktop.viewer.frame_init_timeout',
+        severity: 'error',
+        reason: 'init_timeout',
         metadata: {
           entryPath: loadedEntryPath,
-          missing: missing.join(", "),
+          missing: missing.join(', '),
         },
       });
     }, FRAME_INIT_TIMEOUT_MS);
@@ -442,26 +364,15 @@ export default function App() {
   useEffect(() => {
     if (frameFatal && frameIframeLoaded && frameBridgeBootstrapped) {
       setFrameFatal(null);
-      pushFrameDiagnostic(
-        "viewer.recovered",
-        "Frame recovered after delayed initialization.",
-      );
+      pushFrameDiagnostic('viewer.recovered', 'Frame recovered after delayed initialization.');
     }
-  }, [
-    frameFatal,
-    frameIframeLoaded,
-    frameBridgeBootstrapped,
-    pushFrameDiagnostic,
-  ]);
+  }, [frameFatal, frameIframeLoaded, frameBridgeBootstrapped, pushFrameDiagnostic]);
 
   const registerRecentFile = useCallback((path: string) => {
     const normalized = path.trim();
     if (!normalized) return;
     setRecentFiles((prev) => {
-      const next = [normalized, ...prev.filter((p) => p !== normalized)].slice(
-        0,
-        12,
-      );
+      const next = [normalized, ...prev.filter((p) => p !== normalized)].slice(0, 12);
       writeRecentFiles(next);
       return next;
     });
@@ -482,7 +393,7 @@ export default function App() {
 
   const applyLoadResult = useCallback(
     (result: LoadResult) => {
-      if (result.status === "loaded") {
+      if (result.status === 'loaded') {
         registerRecentFile(result.path);
       }
       setState(handleLoadResult(result));
@@ -492,12 +403,12 @@ export default function App() {
 
   const loadPath = useCallback(
     async (path: string) => {
-      setState({ status: "loading" });
+      setState({ status: 'loading' });
       try {
-        const result = await invoke<LoadResult>("load_uix", { path });
+        const result = await invoke<LoadResult>('load_uix', { path });
         applyLoadResult(result);
       } catch (err) {
-        setState({ status: "error", message: String(err) });
+        setState({ status: 'error', message: String(err) });
       }
     },
     [applyLoadResult],
@@ -506,12 +417,12 @@ export default function App() {
   // ── Bridge: relay postMessages from the uix:// iframe to Tauri ──────────
   // useLayoutEffect fires before browser paint, so the listener is always
   // registered before the iframe's JS can execute and send postMessages.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: relay re-subscribes only on load-status change; other captured refs are stable for the session.
   useLayoutEffect(() => {
-    if (state.status !== "loaded") return;
+    if (state.status !== 'loaded') return;
 
-    const expectedIframeOrigin = "uix://localhost";
-    const normalizeOrigin = (origin: string) =>
-      origin.replace(/\/+$/, "").toLowerCase();
+    const expectedIframeOrigin = 'uix://localhost';
+    const normalizeOrigin = (origin: string) => origin.replace(/\/+$/, '').toLowerCase();
     const expectedOriginNormalized = normalizeOrigin(expectedIframeOrigin);
     const iframeSrcOrigin = (() => {
       const src = iframeRef.current?.src;
@@ -525,12 +436,10 @@ export default function App() {
 
     const handler = async (e: MessageEvent) => {
       if (e.source !== iframeRef.current?.contentWindow) return;
-      const rawOrigin = (e.origin ?? "").trim();
-      const isOpaqueOrigin = rawOrigin === "null" || rawOrigin === "";
+      const rawOrigin = (e.origin ?? '').trim();
+      const isOpaqueOrigin = rawOrigin === 'null' || rawOrigin === '';
       const normalizedOrigin = normalizeOrigin(rawOrigin);
-      const isUixLocalhostOrigin = /^uix:\/\/localhost(?::\d+)?$/i.test(
-        normalizedOrigin,
-      );
+      const isUixLocalhostOrigin = /^uix:\/\/localhost(?::\d+)?$/i.test(normalizedOrigin);
       const originAllowed =
         isOpaqueOrigin ||
         normalizedOrigin === expectedOriginNormalized ||
@@ -539,9 +448,9 @@ export default function App() {
 
       if (!originAllowed) {
         emitDesktopEvent({
-          code: "desktop.bridge.origin_rejected",
-          severity: "warn",
-          reason: "unexpected_origin",
+          code: 'desktop.bridge.origin_rejected',
+          severity: 'warn',
+          reason: 'unexpected_origin',
           metadata: {
             origin: rawOrigin,
             expected: expectedIframeOrigin,
@@ -552,37 +461,34 @@ export default function App() {
       }
 
       if (
-        typeof e.data === "object" &&
+        typeof e.data === 'object' &&
         e.data !== null &&
-        "__dotuix_status" in e.data &&
+        '__dotuix_status' in e.data &&
         (e.data as { __dotuix_status?: unknown }).__dotuix_status === true
       ) {
         const statusType =
-          typeof (e.data as { type?: unknown }).type === "string"
+          typeof (e.data as { type?: unknown }).type === 'string'
             ? (e.data as { type: string }).type
-            : "unknown";
+            : 'unknown';
         const statusDetail =
-          typeof (e.data as { detail?: unknown }).detail === "string"
+          typeof (e.data as { detail?: unknown }).detail === 'string'
             ? (e.data as { detail: string }).detail
-            : "No detail";
+            : 'No detail';
 
         pushFrameDiagnostic(`iframe.${statusType}`, statusDetail);
 
-        if (statusType === "bridge_bootstrap") {
+        if (statusType === 'bridge_bootstrap') {
           setFrameBridgeBootstrapped(true);
-        } else if (statusType === "dom_content_loaded") {
+        } else if (statusType === 'dom_content_loaded') {
           setFrameDomLoaded(true);
-        } else if (statusType === "window_load") {
+        } else if (statusType === 'window_load') {
           setFrameWindowLoaded(true);
-        } else if (
-          statusType === "runtime_error" ||
-          statusType === "unhandled_rejection"
-        ) {
+        } else if (statusType === 'runtime_error' || statusType === 'unhandled_rejection') {
           const message = `App runtime error: ${statusDetail}`;
           setFrameFatal(message);
           emitDesktopEvent({
-            code: "desktop.viewer.runtime_error",
-            severity: "error",
+            code: 'desktop.viewer.runtime_error',
+            severity: 'error',
             reason: statusType,
             metadata: {
               detail: statusDetail,
@@ -594,18 +500,18 @@ export default function App() {
         return;
       }
 
-      const replyTargetOrigin = isOpaqueOrigin ? "*" : rawOrigin;
+      const replyTargetOrigin = isOpaqueOrigin ? '*' : rawOrigin;
 
       if (
-        typeof e.data !== "object" ||
+        typeof e.data !== 'object' ||
         e.data === null ||
-        !("__dotuix" in e.data) ||
+        !('__dotuix' in e.data) ||
         (e.data as { __dotuix?: unknown }).__dotuix !== true
       ) {
         emitDesktopEvent({
-          code: "desktop.bridge.payload_rejected",
-          severity: "warn",
-          reason: "invalid_envelope",
+          code: 'desktop.bridge.payload_rejected',
+          severity: 'warn',
+          reason: 'invalid_envelope',
         });
         return;
       }
@@ -618,18 +524,18 @@ export default function App() {
 
       if (!Number.isInteger(id) || id <= 0) {
         emitDesktopEvent({
-          code: "desktop.bridge.payload_rejected",
-          severity: "warn",
-          reason: "invalid_id",
+          code: 'desktop.bridge.payload_rejected',
+          severity: 'warn',
+          reason: 'invalid_id',
         });
         return;
       }
 
       if (!/^[a-z_][a-z0-9_]*$/i.test(cmd)) {
         emitDesktopEvent({
-          code: "desktop.bridge.payload_rejected",
-          severity: "warn",
-          reason: "invalid_command",
+          code: 'desktop.bridge.payload_rejected',
+          severity: 'warn',
+          reason: 'invalid_command',
           metadata: {
             cmd,
           },
@@ -639,14 +545,12 @@ export default function App() {
 
       if (
         payload !== undefined &&
-        (typeof payload !== "object" ||
-          payload === null ||
-          Array.isArray(payload))
+        (typeof payload !== 'object' || payload === null || Array.isArray(payload))
       ) {
         emitDesktopEvent({
-          code: "desktop.bridge.payload_rejected",
-          severity: "warn",
-          reason: "invalid_payload",
+          code: 'desktop.bridge.payload_rejected',
+          severity: 'warn',
+          reason: 'invalid_payload',
         });
         return;
       }
@@ -665,16 +569,14 @@ export default function App() {
       }
     };
 
-    window.addEventListener("message", handler);
-    return () => window.removeEventListener("message", handler);
+    window.addEventListener('message', handler);
+    return () => window.removeEventListener('message', handler);
   }, [state.status, loadedEntryPath, activeFrameSrc, pushFrameDiagnostic]);
 
   // ── Fetch db paths when a .uix is loaded ────────────────────────────────
   useEffect(() => {
-    if (state.status === "loaded") {
-      invoke<{ state_path: string | null; data_path: string | null }>(
-        "get_db_paths",
-      )
+    if (state.status === 'loaded') {
+      invoke<{ state_path: string | null; data_path: string | null }>('get_db_paths')
         .then((p) => {
           setDbStatePath(p.state_path);
           setDbDataPath(p.data_path);
@@ -688,8 +590,9 @@ export default function App() {
   }, [state.status]);
 
   // ── Automatic local-sync heartbeat for Sync Hub presence ────────────────
+  // biome-ignore lint/correctness/useExhaustiveDependencies: heartbeat restarts on app/sync-toggle change only; reading live state inside is intentional.
   useEffect(() => {
-    if (state.status !== "loaded" || !state.autoSyncEnabled) return;
+    if (state.status !== 'loaded' || !state.autoSyncEnabled) return;
 
     let cancelled = false;
     let inFlight = false;
@@ -699,12 +602,12 @@ export default function App() {
       inFlight = true;
 
       try {
-        await invoke("state_sync");
+        await invoke('state_sync');
       } catch (error) {
         // Keep logs useful by rate-limiting repeated offline/unreachable errors.
         const now = Date.now();
         if (now - autoSyncLastErrorAtRef.current > 60_000) {
-          console.warn("Background sync failed:", error);
+          console.warn('Background sync failed:', error);
           autoSyncLastErrorAtRef.current = now;
         }
       } finally {
@@ -723,13 +626,13 @@ export default function App() {
     };
   }, [
     state.status,
-    state.status === "loaded" ? state.appPath : "",
-    state.status === "loaded" ? state.autoSyncEnabled : false,
+    state.status === 'loaded' ? state.appPath : '',
+    state.status === 'loaded' ? state.autoSyncEnabled : false,
   ]);
 
   // ── File association: check if launched with a .uix path ─────────────────
   useEffect(() => {
-    invoke<string | null>("get_initial_file").then((path) => {
+    invoke<string | null>('get_initial_file').then((path) => {
       if (!path) return;
       void loadPath(path);
     });
@@ -739,72 +642,63 @@ export default function App() {
   useEffect(() => {
     const unsubs: Array<() => void> = [];
 
-    listen("menu-open-file", async () => {
+    listen('menu-open-file', async () => {
       const s = stateRef.current;
-      if (s.status === "loaded") {
+      if (s.status === 'loaded') {
         try {
-          const path = await invoke<string>("pick_uix_path");
-          await invoke("open_uix_in_new_process", { path });
+          const path = await invoke<string>('pick_uix_path');
+          await invoke('open_uix_in_new_process', { path });
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
-          if (msg !== "No file selected") {
-            setState({ status: "error", message: msg });
+          if (msg !== 'No file selected') {
+            setState({ status: 'error', message: msg });
           }
         }
         return;
       }
 
-      if (s.status === "idle" || s.status === "error") {
-        setState({ status: "loading" });
-        invoke<LoadResult>("pick_and_load_uix")
+      if (s.status === 'idle' || s.status === 'error') {
+        setState({ status: 'loading' });
+        invoke<LoadResult>('pick_and_load_uix')
           .then((r) => applyLoadResult(r))
           .catch((err) => {
             const msg = err instanceof Error ? err.message : String(err);
             setState(
-              msg === "No file selected"
-                ? { status: "idle" }
-                : { status: "error", message: msg },
+              msg === 'No file selected' ? { status: 'idle' } : { status: 'error', message: msg },
             );
           });
       }
     }).then((u) => unsubs.push(u));
 
-    listen("menu-close-app", () => {
-      if (stateRef.current.status === "loaded") {
-        invoke("close_uix").catch(() => {});
-        setState({ status: "idle" });
+    listen('menu-close-app', () => {
+      if (stateRef.current.status === 'loaded') {
+        invoke('close_uix').catch(() => {});
+        setState({ status: 'idle' });
       }
     }).then((u) => unsubs.push(u));
 
-    listen<{ name?: string; version?: string }>(
-      "menu-about-viewer",
-      (event) => {
-        const name = event.payload?.name ?? "dotuix Viewer";
-        const version = event.payload?.version ?? "unknown";
-        window.alert(`${name}\nVersion ${version}`);
-      },
-    ).then((u) => unsubs.push(u));
+    listen<{ name?: string; version?: string }>('menu-about-viewer', (event) => {
+      const name = event.payload?.name ?? 'dotuix Viewer';
+      const version = event.payload?.version ?? 'unknown';
+      window.alert(`${name}\nVersion ${version}`);
+    }).then((u) => unsubs.push(u));
 
     // Native file drag-drop (Tauri emits these automatically)
-    listen<{ paths?: string[] }>("tauri://drag-drop", (event) => {
-      const path = (event.payload.paths ?? []).find((p) => p.endsWith(".uix"));
+    listen<{ paths?: string[] }>('tauri://drag-drop', (event) => {
+      const path = (event.payload.paths ?? []).find((p) => p.endsWith('.uix'));
       if (!path) return;
       setIsDragOver(false);
       void loadPath(path);
     }).then((u) => unsubs.push(u));
 
-    listen("tauri://drag-enter", () => setIsDragOver(true)).then((u) =>
-      unsubs.push(u),
-    );
-    listen("tauri://drag-leave", () => setIsDragOver(false)).then((u) =>
-      unsubs.push(u),
-    );
+    listen('tauri://drag-enter', () => setIsDragOver(true)).then((u) => unsubs.push(u));
+    listen('tauri://drag-leave', () => setIsDragOver(false)).then((u) => unsubs.push(u));
 
     // macOS file association: fired by RunEvent::Opened when a .uix is opened
-    listen<string>("uix-file-opened", (event) => {
+    listen<string>('uix-file-opened', (event) => {
       const s = stateRef.current;
-      if (s.status === "loaded" && s.appPath === event.payload) {
-        invoke("focus_main_window").catch(() => {});
+      if (s.status === 'loaded' && s.appPath === event.payload) {
+        invoke('focus_main_window').catch(() => {});
         return;
       }
       void loadPath(event.payload);
@@ -814,42 +708,38 @@ export default function App() {
   }, [applyLoadResult, loadPath]);
 
   const openFile = useCallback(async () => {
-    setState({ status: "loading" });
+    setState({ status: 'loading' });
     try {
-      const result = await invoke<LoadResult>("pick_and_load_uix");
+      const result = await invoke<LoadResult>('pick_and_load_uix');
       applyLoadResult(result);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      setState(
-        msg === "No file selected"
-          ? { status: "idle" }
-          : { status: "error", message: msg },
-      );
+      setState(msg === 'No file selected' ? { status: 'idle' } : { status: 'error', message: msg });
     }
   }, [applyLoadResult]);
 
   const submitPin = useCallback(async () => {
     if (!pin.trim()) return;
-    setPinError("");
+    setPinError('');
     try {
-      const result = await invoke<LoadResult>("unlock_with_pin", { pin });
-      setPin("");
+      const result = await invoke<LoadResult>('unlock_with_pin', { pin });
+      setPin('');
       applyLoadResult(result);
     } catch (err) {
       setPinError(err instanceof Error ? err.message : String(err));
     }
   }, [applyLoadResult, pin]);
 
-  const closeApp = useCallback(() => setState({ status: "idle" }), []);
+  const closeApp = useCallback(() => setState({ status: 'idle' }), []);
 
   const openInNewWindow = useCallback(async () => {
     try {
-      const path = await invoke<string>("pick_uix_path");
-      await invoke("open_uix_in_new_process", { path });
+      const path = await invoke<string>('pick_uix_path');
+      await invoke('open_uix_in_new_process', { path });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      if (msg !== "No file selected") {
-        setState({ status: "error", message: msg });
+      if (msg !== 'No file selected') {
+        setState({ status: 'error', message: msg });
       }
     }
   }, []);
@@ -857,32 +747,26 @@ export default function App() {
   // ── ⌘O / Ctrl+O keyboard shortcut to open a file ────────────────────────
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "o") {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'o') {
         e.preventDefault();
         const s = stateRef.current;
-        if (s.status === "idle" || s.status === "error") {
+        if (s.status === 'idle' || s.status === 'error') {
           openFile();
           return;
         }
-        if (s.status === "loaded") {
+        if (s.status === 'loaded') {
           openInNewWindow();
         }
       }
     };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
   }, [openFile, openInNewWindow]);
 
-  const toggleFullscreen = useCallback(
-    () => invoke("toggle_fullscreen").catch(console.warn),
-    [],
-  );
+  const toggleFullscreen = useCallback(() => invoke('toggle_fullscreen').catch(console.warn), []);
 
   const retryFrameLoad = useCallback(() => {
-    pushFrameDiagnostic(
-      "viewer.retry_requested",
-      "User requested frame reload.",
-    );
+    pushFrameDiagnostic('viewer.retry_requested', 'User requested frame reload.');
     setFrameSrcOverride(null);
     setFrameReloadNonce((n) => n + 1);
   }, [pushFrameDiagnostic]);
@@ -899,25 +783,18 @@ export default function App() {
       `bridgeBootstrapped=${String(frameBridgeBootstrapped)}`,
       `domContentLoaded=${String(frameDomLoaded)}`,
       `windowLoad=${String(frameWindowLoaded)}`,
-      `fatal=${frameFatal ?? ""}`,
-      "events:",
+      `fatal=${frameFatal ?? ''}`,
+      'events:',
       ...frameDiagnostics.map(
-        (item) =>
-          `- ${new Date(item.ts).toISOString()} ${item.stage} ${item.detail}`,
+        (item) => `- ${new Date(item.ts).toISOString()} ${item.stage} ${item.detail}`,
       ),
     ];
 
     try {
-      await navigator.clipboard.writeText(lines.join("\n"));
-      pushFrameDiagnostic(
-        "viewer.diagnostics_copied",
-        "Copied diagnostics to clipboard.",
-      );
+      await navigator.clipboard.writeText(lines.join('\n'));
+      pushFrameDiagnostic('viewer.diagnostics_copied', 'Copied diagnostics to clipboard.');
     } catch (err) {
-      pushFrameDiagnostic(
-        "viewer.diagnostics_copy_failed",
-        `Copy failed: ${String(err)}`,
-      );
+      pushFrameDiagnostic('viewer.diagnostics_copy_failed', `Copy failed: ${String(err)}`);
     }
   }, [
     loadedFrameKey,
@@ -934,16 +811,12 @@ export default function App() {
   ]);
 
   // ── Loaded: viewer with professional toolbar ─────────────────────────────
-  if (state.status === "loaded") {
+  if (state.status === 'loaded') {
     const days = state.expires ? daysUntil(state.expires) : null;
     return (
       <div className="viewer-root">
         <div className="viewer-toolbar">
-          <button
-            className="toolbar-btn-home"
-            onClick={closeApp}
-            title="Close app (⌘W)"
-          >
+          <button className="toolbar-btn-home" onClick={closeApp} title="Close app (⌘W)">
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
               <path
                 d="M7.5 2L4 6L7.5 10"
@@ -974,17 +847,15 @@ export default function App() {
             )}
             <span
               className={`badge ${
-                state.networkAllowed
-                  ? "badge--network-on"
-                  : "badge--network-off"
+                state.networkAllowed ? 'badge--network-on' : 'badge--network-off'
               }`}
               title={
                 state.networkAllowed
-                  ? "Network access is enabled by this app manifest."
-                  : "Network access is blocked by this app manifest."
+                  ? 'Network access is enabled by this app manifest.'
+                  : 'Network access is blocked by this app manifest.'
               }
             >
-              {state.networkAllowed ? "Network On" : "Network Off"}
+              {state.networkAllowed ? 'Network On' : 'Network Off'}
             </span>
             {state.autoSyncEnabled && (
               <span
@@ -995,12 +866,8 @@ export default function App() {
               </span>
             )}
             {days !== null && (
-              <span
-                className={`badge ${
-                  days <= 7 ? "badge--expires-warn" : "badge--expires"
-                }`}
-              >
-                {days > 0 ? `${days}d left` : "Expired"}
+              <span className={`badge ${days <= 7 ? 'badge--expires-warn' : 'badge--expires'}`}>
+                {days > 0 ? `${days}d left` : 'Expired'}
               </span>
             )}
           </div>
@@ -1040,14 +907,7 @@ export default function App() {
               title="DB Viewer (diagnostics)"
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-                <ellipse
-                  cx="12"
-                  cy="5"
-                  rx="9"
-                  ry="3"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                />
+                <ellipse cx="12" cy="5" rx="9" ry="3" stroke="currentColor" strokeWidth="1.5" />
                 <path
                   d="M3 5v14c0 1.657 4.03 3 9 3s9-1.343 9-3V5"
                   stroke="currentColor"
@@ -1086,25 +946,21 @@ export default function App() {
             title={`${state.manifestName} · ${state.appPath}`}
             onLoad={() => {
               setFrameIframeLoaded(true);
-              pushFrameDiagnostic(
-                "iframe.load",
-                "Iframe document load event fired.",
-              );
+              pushFrameDiagnostic('iframe.load', 'Iframe document load event fired.');
             }}
             onError={() => {
-              const message =
-                "The viewer iframe failed to load the entry document.";
-              pushFrameDiagnostic("iframe.error", message);
+              const message = 'The viewer iframe failed to load the entry document.';
+              pushFrameDiagnostic('iframe.error', message);
 
-              if (startTempFileFallback("iframe_error", message)) {
+              if (startTempFileFallback('iframe_error', message)) {
                 return;
               }
 
               setFrameFatal(message);
               emitDesktopEvent({
-                code: "desktop.viewer.iframe_load_failed",
-                severity: "error",
-                reason: "iframe_load_error",
+                code: 'desktop.viewer.iframe_load_failed',
+                severity: 'error',
+                reason: 'iframe_load_error',
                 metadata: {
                   entryPath: state.entryPath,
                 },
@@ -1112,11 +968,7 @@ export default function App() {
             }}
           />
         ) : (
-          <div
-            className="viewer-frame-loading"
-            role="status"
-            aria-live="polite"
-          >
+          <div className="viewer-frame-loading" role="status" aria-live="polite">
             <Spinner size={18} />
             <span>Preparing app view...</span>
           </div>
@@ -1130,27 +982,24 @@ export default function App() {
                 <span>Entry:</span>
                 <code>{state.entryPath}</code>
                 <span>Source:</span>
-                <code>{activeFrameSrc || "(preparing fallback source)"}</code>
+                <code>{activeFrameSrc || '(preparing fallback source)'}</code>
               </div>
               <div className="viewer-diagnostics-signals">
-                <span className={frameIframeLoaded ? "ok" : "bad"}>
-                  iframe load: {frameIframeLoaded ? "ok" : "missing"}
+                <span className={frameIframeLoaded ? 'ok' : 'bad'}>
+                  iframe load: {frameIframeLoaded ? 'ok' : 'missing'}
                 </span>
-                <span className={frameBridgeBootstrapped ? "ok" : "bad"}>
-                  bridge bootstrap: {frameBridgeBootstrapped ? "ok" : "missing"}
+                <span className={frameBridgeBootstrapped ? 'ok' : 'bad'}>
+                  bridge bootstrap: {frameBridgeBootstrapped ? 'ok' : 'missing'}
                 </span>
-                <span className={frameDomLoaded ? "ok" : "bad"}>
-                  DOMContentLoaded: {frameDomLoaded ? "ok" : "missing"}
+                <span className={frameDomLoaded ? 'ok' : 'bad'}>
+                  DOMContentLoaded: {frameDomLoaded ? 'ok' : 'missing'}
                 </span>
-                <span className={frameWindowLoaded ? "ok" : "bad"}>
-                  window load: {frameWindowLoaded ? "ok" : "missing"}
+                <span className={frameWindowLoaded ? 'ok' : 'bad'}>
+                  window load: {frameWindowLoaded ? 'ok' : 'missing'}
                 </span>
               </div>
               <div className="viewer-diagnostics-actions">
-                <button
-                  className="start-secondary-btn"
-                  onClick={retryFrameLoad}
-                >
+                <button className="start-secondary-btn" onClick={retryFrameLoad}>
                   Retry App Load
                 </button>
                 <button
@@ -1181,10 +1030,7 @@ export default function App() {
           <div className="db-overlay">
             <div className="db-overlay-header">
               <span>DB Viewer</span>
-              <button
-                className="db-overlay-close"
-                onClick={() => setDbOpen(false)}
-              >
+              <button className="db-overlay-close" onClick={() => setDbOpen(false)}>
                 ✕
               </button>
             </div>
@@ -1196,7 +1042,7 @@ export default function App() {
   }
 
   // ── License required ─────────────────────────────────────────────────────
-  if (state.status === "license_required") {
+  if (state.status === 'license_required') {
     const { appName, appId, deviceId, uixPath } = state;
     return (
       <div className="shell">
@@ -1237,22 +1083,22 @@ export default function App() {
             className="pin-submit"
             onClick={async () => {
               try {
-                await invoke("pick_and_install_license", { app_id: appId });
+                await invoke('pick_and_install_license', { app_id: appId });
               } catch (err) {
                 const msg = err instanceof Error ? err.message : String(err);
-                if (msg === "No file selected") return;
-                setState({ status: "error", message: `License error: ${msg}` });
+                if (msg === 'No file selected') return;
+                setState({ status: 'error', message: `License error: ${msg}` });
                 return;
               }
-              setState({ status: "loading" });
+              setState({ status: 'loading' });
               try {
-                const result = await invoke<LoadResult>("load_uix", {
+                const result = await invoke<LoadResult>('load_uix', {
                   path: uixPath,
                 });
                 applyLoadResult(result);
               } catch (err) {
                 setState({
-                  status: "error",
+                  status: 'error',
                   message: err instanceof Error ? err.message : String(err),
                 });
               }
@@ -1260,10 +1106,7 @@ export default function App() {
           >
             Browse for .uixlicense…
           </button>
-          <button
-            className="pin-cancel"
-            onClick={() => setState({ status: "idle" })}
-          >
+          <button className="pin-cancel" onClick={() => setState({ status: 'idle' })}>
             Cancel
           </button>
         </div>
@@ -1272,7 +1115,7 @@ export default function App() {
   }
 
   // ── PIN dialog ───────────────────────────────────────────────────────────
-  if (state.status === "pin_required") {
+  if (state.status === 'pin_required') {
     return (
       <div className="shell">
         <div className="pin-card">
@@ -1301,15 +1144,14 @@ export default function App() {
             className="pin-input"
             type="password"
             inputMode="numeric"
-            autoFocus
             placeholder="• • • •"
             value={pin}
             onChange={(e) => {
               setPin(e.target.value);
-              setPinError("");
+              setPinError('');
             }}
             onKeyDown={(e) => {
-              if (e.key === "Enter") submitPin();
+              if (e.key === 'Enter') submitPin();
             }}
           />
           {pinError && <p className="pin-error">{pinError}</p>}
@@ -1319,9 +1161,9 @@ export default function App() {
           <button
             className="pin-cancel"
             onClick={() => {
-              setPin("");
-              setPinError("");
-              setState({ status: "idle" });
+              setPin('');
+              setPinError('');
+              setState({ status: 'idle' });
             }}
           >
             Cancel
@@ -1332,7 +1174,7 @@ export default function App() {
   }
 
   // ── Loading overlay ───────────────────────────────────────────────────────
-  if (state.status === "loading") {
+  if (state.status === 'loading') {
     return (
       <div className="shell">
         <div className="loading-overlay">
@@ -1345,17 +1187,11 @@ export default function App() {
 
   // ── Home / idle / error ──────────────────────────────────────────────────
   return (
-    <div className={`shell shell--home${isDragOver ? " shell--dragover" : ""}`}>
+    <div className={`shell shell--home${isDragOver ? ' shell--dragover' : ''}`}>
       {isDragOver && (
         <div className="drag-overlay">
           <div className="drag-overlay-inner">
-            <svg
-              width="32"
-              height="32"
-              viewBox="0 0 24 24"
-              fill="none"
-              aria-hidden
-            >
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" aria-hidden>
               <path
                 d="M12 3v12M7 11l5 5 5-5"
                 stroke="currentColor"
@@ -1363,12 +1199,7 @@ export default function App() {
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
-              <path
-                d="M5 19h14"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
+              <path d="M5 19h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
             </svg>
             <span>Drop to open</span>
           </div>
@@ -1382,9 +1213,7 @@ export default function App() {
             </div>
             <div className="start-brand-copy">
               <span className="start-brand-name">dotuix Viewer</span>
-              <p className="start-brand-subtitle">
-                Desktop workspace for executable documents
-              </p>
+              <p className="start-brand-subtitle">Desktop workspace for executable documents</p>
             </div>
           </div>
           <button className="start-link-btn" onClick={openInNewWindow}>
@@ -1395,13 +1224,11 @@ export default function App() {
         <div className="start-grid">
           <section className="start-hero">
             <p className="start-kicker">Home</p>
-            <h1 className="start-title">
-              Open and review UIX apps with a real desktop workflow.
-            </h1>
+            <h1 className="start-title">Open and review UIX apps with a real desktop workflow.</h1>
             <p className="start-description">
-              Start by opening a document, dragging one into this window, or
-              jumping back into a recent project. dotuix Viewer keeps each app
-              isolated while giving you fast multi-window navigation.
+              Start by opening a document, dragging one into this window, or jumping back into a
+              recent project. dotuix Viewer keeps each app isolated while giving you fast
+              multi-window navigation.
             </p>
 
             <div className="start-actions">
@@ -1441,13 +1268,7 @@ export default function App() {
 
             {recentFiles.length === 0 ? (
               <div className="recent-empty-state">
-                <svg
-                  width="22"
-                  height="22"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  aria-hidden
-                >
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
                   <path
                     d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5z"
                     stroke="currentColor"
@@ -1464,9 +1285,7 @@ export default function App() {
                   />
                 </svg>
                 <p>No recent files yet.</p>
-                <span>
-                  Your recently opened UIX documents will appear here.
-                </span>
+                <span>Your recently opened UIX documents will appear here.</span>
               </div>
             ) : (
               <ul className="recent-list">
@@ -1478,9 +1297,7 @@ export default function App() {
                         void loadPath(path);
                       }}
                     >
-                      <span className="recent-name">
-                        {filenameFromPath(path)}
-                      </span>
+                      <span className="recent-name">{filenameFromPath(path)}</span>
                       <span className="recent-path">{path}</span>
                     </button>
                     <button
@@ -1497,12 +1314,12 @@ export default function App() {
           </aside>
         </div>
 
-        {state.status === "error" && (
+        {state.status === 'error' && (
           <div className="error-msg">
             <span>{state.message}</span>
             <button
               className="error-dismiss"
-              onClick={() => setState({ status: "idle" })}
+              onClick={() => setState({ status: 'idle' })}
               aria-label="Dismiss error"
             >
               ✕

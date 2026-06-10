@@ -1,5 +1,5 @@
-import type { Staff } from "../types";
-import { initials } from "../utils";
+import type { Staff } from '../types';
+import { initials } from '../utils';
 
 interface Props {
   staff: Staff[];
@@ -8,36 +8,37 @@ interface Props {
 
 export function SettingsScreen({ staff, onSignOut }: Props) {
   async function doExport() {
-    if (typeof uix !== "undefined" && uix?.state?.exportBundle) {
+    if (typeof uix !== 'undefined' && uix?.state?.exportBundle) {
       try {
         await uix.state.exportBundle();
       } catch (e) {
-        console.error("Export failed", e);
+        console.error('Export failed', e);
       }
     } else {
-      alert("uix.state.exportBundle() is not available in this environment.");
+      alert('uix.state.exportBundle() is not available in this environment.');
     }
   }
 
   async function doImport() {
-    if (typeof uix !== "undefined" && uix?.state?.importBundle) {
+    if (typeof uix !== 'undefined' && uix?.state?.importBundle) {
       try {
         await uix.state.importBundle();
         window.location.reload();
       } catch (e) {
         const err = e as Error;
-        if (err?.message !== "cancelled") console.error("Import failed", e);
+        if (err?.message !== 'cancelled') console.error('Import failed', e);
       }
     } else {
-      alert("uix.state.importBundle() is not available in this environment.");
+      alert('uix.state.importBundle() is not available in this environment.');
     }
   }
 
   return (
     <div className="settings-screen">
-      <div className="orders-header"><h2 className="screen-title">Settings</h2></div>
+      <div className="orders-header">
+        <h2 className="screen-title">Settings</h2>
+      </div>
       <div className="settings-content">
-
         {/* ── Data Transfer ────────────────────────────── */}
         <div className="settings-section">
           <div className="settings-section-title">Data Transfer</div>
@@ -45,21 +46,25 @@ export function SettingsScreen({ staff, onSignOut }: Props) {
             <div className="settings-info">
               <div className="settings-info-title">Export Data</div>
               <div className="settings-info-sub">
-                Save all orders and settings as a <code>.uixdata</code> bundle via{" "}
+                Save all orders and settings as a <code>.uixdata</code> bundle via{' '}
                 <code>uix.state.exportBundle()</code>
               </div>
             </div>
-            <button className="settings-btn" onClick={doExport}>Export</button>
+            <button className="settings-btn" onClick={doExport}>
+              Export
+            </button>
           </div>
           <div className="settings-row">
             <div className="settings-info">
               <div className="settings-info-title">Import Data</div>
               <div className="settings-info-sub">
-                Restore from a <code>.uixdata</code> bundle via{" "}
+                Restore from a <code>.uixdata</code> bundle via{' '}
                 <code>uix.state.importBundle()</code>
               </div>
             </div>
-            <button className="settings-btn" onClick={doImport}>Import</button>
+            <button className="settings-btn" onClick={doImport}>
+              Import
+            </button>
           </div>
         </div>
 
@@ -92,7 +97,9 @@ export function SettingsScreen({ staff, onSignOut }: Props) {
           <div className="settings-row">
             <div className="settings-info">
               <div className="settings-info-title">Schema Version</div>
-              <div className="settings-info-sub">Current data model — migration from v1 supported</div>
+              <div className="settings-info-sub">
+                Current data model — migration from v1 supported
+              </div>
             </div>
             <span className="tag tag-info">v2</span>
           </div>
@@ -115,10 +122,11 @@ export function SettingsScreen({ staff, onSignOut }: Props) {
               <div className="settings-info-title">Sign Out</div>
               <div className="settings-info-sub">Return to staff selection screen</div>
             </div>
-            <button className="settings-btn danger" onClick={onSignOut}>Sign Out</button>
+            <button className="settings-btn danger" onClick={onSignOut}>
+              Sign Out
+            </button>
           </div>
         </div>
-
       </div>
     </div>
   );

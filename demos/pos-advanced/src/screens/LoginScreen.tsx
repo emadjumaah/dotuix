@@ -1,6 +1,6 @@
-import { useState } from "react";
-import type { Staff } from "../types";
-import { initials } from "../utils";
+import { useState } from 'react';
+import type { Staff } from '../types';
+import { initials } from '../utils';
 
 interface Props {
   staff: Staff[];
@@ -9,18 +9,26 @@ interface Props {
 
 export function LoginScreen({ staff, onLogin }: Props) {
   const [selected, setSelected] = useState<Staff | null>(null);
-  const [pin, setPin]           = useState("");
-  const [error, setError]       = useState("");
+  const [pin, setPin] = useState('');
+  const [error, setError] = useState('');
 
   function selectStaff(s: Staff) {
     setSelected(s);
-    setPin("");
-    setError("");
+    setPin('');
+    setError('');
   }
 
   function pressKey(k: string) {
-    if (k === "clear") { setPin(""); setError(""); return; }
-    if (k === "del")   { setPin((p) => p.slice(0, -1)); setError(""); return; }
+    if (k === 'clear') {
+      setPin('');
+      setError('');
+      return;
+    }
+    if (k === 'del') {
+      setPin((p) => p.slice(0, -1));
+      setError('');
+      return;
+    }
     if (pin.length >= 4) return;
     const next = pin + k;
     setPin(next);
@@ -34,8 +42,8 @@ export function LoginScreen({ staff, onLogin }: Props) {
     if (entered === selected.pin) {
       onLogin(selected);
     } else {
-      setPin("");
-      setError("Incorrect PIN — try again");
+      setPin('');
+      setError('Incorrect PIN — try again');
     }
   }
 
@@ -53,7 +61,7 @@ export function LoginScreen({ staff, onLogin }: Props) {
         {staff.map((s) => (
           <button
             key={s.id}
-            className={`staff-card${selected?.id === s.id ? " active" : ""}`}
+            className={`staff-card${selected?.id === s.id ? ' active' : ''}`}
             onClick={() => selectStaff(s)}
           >
             <div className="staff-avatar" style={{ background: s.color }}>
@@ -71,14 +79,18 @@ export function LoginScreen({ staff, onLogin }: Props) {
 
           <div className="pin-dots">
             {[0, 1, 2, 3].map((i) => (
-              <div key={i} className={`pin-dot${i < pin.length ? " filled" : ""}`} />
+              <div key={i} className={`pin-dot${i < pin.length ? ' filled' : ''}`} />
             ))}
           </div>
 
           <div className="pin-grid">
-            {["1","2","3","4","5","6","7","8","9","clear","0","del"].map((k) => (
-              <button key={k} className={`pin-key${k === "del" ? " del" : ""}`} onClick={() => pressKey(k)}>
-                {k === "del" ? "⌫" : k === "clear" ? "C" : k}
+            {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'clear', '0', 'del'].map((k) => (
+              <button
+                key={k}
+                className={`pin-key${k === 'del' ? ' del' : ''}`}
+                onClick={() => pressKey(k)}
+              >
+                {k === 'del' ? '⌫' : k === 'clear' ? 'C' : k}
               </button>
             ))}
           </div>

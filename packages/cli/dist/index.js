@@ -1,43 +1,41 @@
 #!/usr/bin/env node
 
 // src/index.ts
+import { spawn, spawnSync } from "child_process";
 import {
+  cpSync,
+  existsSync,
+  mkdirSync,
   readFileSync,
-  writeFileSync,
   renameSync,
   rmSync,
-  mkdirSync,
-  existsSync,
-  cpSync,
-  statSync
+  statSync,
+  writeFileSync
 } from "fs";
-import { spawnSync, spawn } from "child_process";
 import { readdirSync } from "fs";
-import { resolve, basename, extname, join, dirname } from "path";
+import { basename, dirname, extname, join, resolve } from "path";
 import { fileURLToPath } from "url";
-import {
-  UIX,
-  unpackBuffer,
-  packBuffer,
-  readManifestFromBuffer,
-  createState,
-  generateKeyPair,
-  publicKeyFromSeed,
-  signBytes,
-  sign,
-  verify,
-  createDataDb,
-  MANIFEST_MODES,
-  MANIFEST_PERMISSIONS
-} from "@dotuix/core";
 import { createHash } from "crypto";
 import { homedir } from "os";
+import {
+  MANIFEST_MODES,
+  MANIFEST_PERMISSIONS,
+  UIX,
+  createDataDb,
+  createState,
+  generateKeyPair,
+  packBuffer,
+  publicKeyFromSeed,
+  readManifestFromBuffer,
+  sign,
+  signBytes,
+  unpackBuffer,
+  verify
+} from "@dotuix/core";
 var __dirname = dirname(fileURLToPath(import.meta.url));
 var CLI_VERSION = (() => {
   try {
-    const pkg = JSON.parse(
-      readFileSync(join(__dirname, "..", "package.json"), "utf8")
-    );
+    const pkg = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf8"));
     return typeof pkg.version === "string" ? pkg.version : "0.0.0";
   } catch {
     return "0.0.0";
@@ -66,19 +64,13 @@ function viewerDeviceIdPath() {
   const home = homedir();
   switch (process.platform) {
     case "darwin":
-      return join(
-        home,
-        "Library",
-        "Application Support",
-        "com.dotuix.viewer",
-        "device_id"
-      );
+      return join(home, "Library", "Application Support", "com.dotuix.viewer", "device_id");
     case "win32": {
-      const appData = process.env["APPDATA"] ?? join(home, "AppData", "Roaming");
+      const appData = process.env.APPDATA ?? join(home, "AppData", "Roaming");
       return join(appData, "com.dotuix.viewer", "device_id");
     }
     default: {
-      const xdg = process.env["XDG_DATA_HOME"] ?? join(home, ".local", "share");
+      const xdg = process.env.XDG_DATA_HOME ?? join(home, ".local", "share");
       return join(xdg, "com.dotuix.viewer", "device_id");
     }
   }
@@ -103,13 +95,13 @@ function offlineCheck(files) {
         issues.push({
           file: path,
           line: num,
-          message: `Google Fonts import \u2014 will fail offline`
+          message: "Google Fonts import \u2014 will fail offline"
         });
       else if (CDN_RE.test(ln))
         issues.push({
           file: path,
           line: num,
-          message: `CDN dependency \u2014 will fail offline`
+          message: "CDN dependency \u2014 will fail offline"
         });
       else if (EXTERNAL_RE.test(ln) || FETCH_RE.test(ln) || WS_RE.test(ln))
         issues.push({
@@ -127,14 +119,11 @@ function flag(args, ...flags) {
 function opt(args, ...flags) {
   for (const f of flags) {
     const i = args.indexOf(f);
-    if (i !== -1 && args[i + 1] && !args[i + 1].startsWith("-"))
-      return args[i + 1];
+    if (i !== -1 && args[i + 1] && !args[i + 1].startsWith("-")) return args[i + 1];
   }
 }
 function pos(args) {
-  return args.filter(
-    (a, i) => !a.startsWith("-") && (i === 0 || !args[i - 1].startsWith("-"))
-  );
+  return args.filter((a, i) => !a.startsWith("-") && (i === 0 || !args[i - 1].startsWith("-")));
 }
 function atomicWriteFile(targetPath, data) {
   const tempPath = `${targetPath}.tmp-${process.pid}-${Date.now()}`;
@@ -152,7 +141,7 @@ function atomicWriteFile(targetPath, data) {
 async function cmdPack(args) {
   const dir = pos(args)[0];
   if (!dir) {
-    console.error(c.red("\u2717") + " Usage: dotuix pack <dir> [-o out.uix]");
+    console.error(`${c.red("\u2717")} Usage: dotuix pack <dir> [-o out.uix]`);
     process.exit(1);
   }
   const absDir = resolve(dir);
@@ -160,28 +149,24 @@ async function cmdPack(args) {
   console.log(c.muted(`Packing ${absDir} \u2026`));
   await UIX.pack(absDir, out);
   const kb = (readFileSync(out).length / 1024).toFixed(1);
-  console.log(
-    c.green("\u2713") + " " + c.bold(basename(out)) + c.muted(`  ${kb} KB  \u2192  ${out}`)
-  );
+  console.log(`${c.green("\u2713")} ${c.bold(basename(out))}${c.muted(`  ${kb} KB  \u2192  ${out}`)}`);
 }
 async function cmdUnpack(args) {
   const file = pos(args)[0];
   if (!file) {
-    console.error(c.red("\u2717") + " Usage: dotuix unpack <file.uix> [-o outDir]");
+    console.error(`${c.red("\u2717")} Usage: dotuix unpack <file.uix> [-o outDir]`);
     process.exit(1);
   }
   const absFile = resolve(file);
-  const outDir = resolve(
-    opt(args, "-o", "--out") ?? basename(file, extname(file))
-  );
+  const outDir = resolve(opt(args, "-o", "--out") ?? basename(file, extname(file)));
   console.log(c.muted(`Unpacking ${basename(absFile)} \u2026`));
   await UIX.unpack(absFile, outDir);
-  console.log(c.green("\u2713") + " Unpacked to " + c.bold(outDir));
+  console.log(`${c.green("\u2713")} Unpacked to ${c.bold(outDir)}`);
 }
 async function cmdValidate(args) {
   const file = pos(args)[0];
   if (!file) {
-    console.error(c.red("\u2717") + " Usage: dotuix validate <file.uix>");
+    console.error(`${c.red("\u2717")} Usage: dotuix validate <file.uix>`);
     process.exit(1);
   }
   const result = await UIX.validate(resolve(file));
@@ -194,24 +179,37 @@ async function cmdValidate(args) {
     if (!networkAllowed) offlineIssues = offlineCheck(unpackBuffer(data));
   } catch {
   }
-  if (result.errors.length === 0) {
-    console.log(c.green("\u2713") + " manifest.json valid");
-    console.log(c.green("\u2713") + " entry file present");
+  const offlineWarnings = offlineIssues.map((i) => `${i.file}:${i.line} \u2014 ${i.message}`);
+  if (args.includes("--json")) {
+    process.stdout.write(
+      `${JSON.stringify(
+        {
+          valid: result.valid,
+          errors: result.errors,
+          warnings: [...result.warnings, ...offlineWarnings]
+        },
+        null,
+        2
+      )}
+`
+    );
+    process.exit(result.valid ? 0 : 1);
   }
-  for (const e of result.errors) console.log(c.red("\u2717") + " " + e);
-  for (const w of result.warnings) console.log(c.yellow("\u26A0") + " " + w);
-  for (const i of offlineIssues)
-    console.log(c.yellow("\u26A0") + ` ${i.file}:${i.line} \u2014 ${i.message}`);
+  if (result.errors.length === 0) {
+    console.log(`${c.green("\u2713")} manifest.json valid`);
+    console.log(`${c.green("\u2713")} entry file present`);
+  }
+  for (const e of result.errors) console.log(`${c.red("\u2717")} ${e}`);
+  for (const w of result.warnings) console.log(`${c.yellow("\u26A0")} ${w}`);
+  for (const i of offlineIssues) console.log(`${c.yellow("\u26A0")} ${i.file}:${i.line} \u2014 ${i.message}`);
   const warns = result.warnings.length + offlineIssues.length;
   if (!result.valid) {
     console.log(`
 ${c.red("\u2717")} ${result.errors.length} error(s)`);
     process.exit(1);
   } else if (warns > 0) {
-    console.log(
-      `
-${c.yellow("\u26A0")} ${warns} warning(s) \u2014 file is valid but check above`
-    );
+    console.log(`
+${c.yellow("\u26A0")} ${warns} warning(s) \u2014 file is valid but check above`);
   } else {
     console.log(`
 ${c.green("\u2713")} ${c.bold(basename(file))} is valid`);
@@ -220,38 +218,57 @@ ${c.green("\u2713")} ${c.bold(basename(file))} is valid`);
 async function cmdInfo(args) {
   const file = pos(args)[0];
   if (!file) {
-    console.error(c.red("\u2717") + " Usage: dotuix info <file.uix>");
+    console.error(`${c.red("\u2717")} Usage: dotuix info <file.uix>`);
     process.exit(1);
   }
   const data = new Uint8Array(readFileSync(resolve(file)));
   const manifest = readManifestFromBuffer(data);
   const files = unpackBuffer(data);
-  const kb = (Object.values(files).reduce((s, b) => s + b.length, 0) / 1024).toFixed(1);
-  console.log(
-    `
-  ${c.bold(manifest.name)}  ${c.muted("v" + manifest.version)}`
-  );
+  const totalBytes = Object.values(files).reduce((s, b) => s + b.length, 0);
+  const kb = (totalBytes / 1024).toFixed(1);
+  if (args.includes("--json")) {
+    process.stdout.write(
+      `${JSON.stringify(
+        {
+          name: manifest.name,
+          version: manifest.version,
+          id: manifest.id,
+          uix: manifest.uix,
+          mode: manifest.mode,
+          network: manifest.network ?? "blocked",
+          entry: manifest.entry,
+          permissions: manifest.permissions ?? [],
+          expires: manifest.expires ?? null,
+          author: manifest.author ?? null,
+          fileCount: Object.keys(files).length,
+          uncompressedBytes: totalBytes
+        },
+        null,
+        2
+      )}
+`
+    );
+    return;
+  }
+  console.log(`
+  ${c.bold(manifest.name)}  ${c.muted(`v${manifest.version}`)}`);
   console.log(`  ${c.muted("id:")}          ${manifest.id}`);
   console.log(`  ${c.muted("format:")}      uix ${manifest.uix}`);
   console.log(`  ${c.muted("mode:")}        ${manifest.mode}`);
   console.log(`  ${c.muted("network:")}     ${manifest.network ?? "blocked"}`);
   console.log(`  ${c.muted("entry:")}       ${manifest.entry}`);
   if (manifest.permissions?.length)
-    console.log(
-      `  ${c.muted("permissions:")} ${manifest.permissions.join(", ")}`
-    );
+    console.log(`  ${c.muted("permissions:")} ${manifest.permissions.join(", ")}`);
   if (manifest.expires) {
     const expired = new Date(manifest.expires) < /* @__PURE__ */ new Date();
     console.log(
-      `  ${c.muted("expires:")}     ${manifest.expires}` + (expired ? c.red(" (expired)") : c.green(" (active)"))
+      `  ${c.muted("expires:")}     ${manifest.expires}${expired ? c.red(" (expired)") : c.green(" (active)")}`
     );
   }
   if (manifest.author) {
     console.log(`  ${c.muted("author:")}      ${manifest.author}`);
   }
-  console.log(
-    `  ${c.muted("files:")}       ${Object.keys(files).length} (${kb} KB uncompressed)`
-  );
+  console.log(`  ${c.muted("files:")}       ${Object.keys(files).length} (${kb} KB uncompressed)`);
   console.log();
 }
 async function cmdExport(args) {
@@ -262,12 +279,12 @@ async function cmdExport(args) {
   if (isBundleMode) {
     if (!file) {
       console.error(
-        c.red("\u2717") + " Usage: dotuix export <file.uix> [--types t1,t2] --output bundle.uixdata"
+        `${c.red("\u2717")} Usage: dotuix export <file.uix> [--types t1,t2] --output bundle.uixdata`
       );
       process.exit(1);
     }
     const types = typesStr ? typesStr.split(",").map((t) => t.trim()).filter(Boolean) : [];
-    const output = outFile ?? basename(file, ".uix") + ".uixdata";
+    const output = outFile ?? `${basename(file, ".uix")}.uixdata`;
     const data2 = new Uint8Array(readFileSync(resolve(file)));
     const bFiles = unpackBuffer(data2);
     const manifest2 = readManifestFromBuffer(data2);
@@ -276,12 +293,15 @@ async function cmdExport(args) {
       seed: bFiles["state.db"],
       permissions: ["raw-sql"]
     });
-    const records2 = types.length > 0 ? types.flatMap((t) => stateDb2.find({ type: t })) : stateDb2.raw(
-      "SELECT id, type, body, created_at, updated_at FROM records ORDER BY created_at",
-      []
+    const records2 = types.length > 0 ? types.flatMap((t) => stateDb2.find({ type: t })) : (
+      // raw() selects exactly the record columns, so the rows are UIXRecords.
+      stateDb2.raw(
+        "SELECT id, type, body, created_at, updated_at FROM records ORDER BY created_at",
+        []
+      )
     );
     stateDb2.close();
-    const checksum = "sha256:" + createHash("sha256").update(JSON.stringify(records2)).digest("hex");
+    const checksum = `sha256:${createHash("sha256").update(JSON.stringify(records2)).digest("hex")}`;
     const uniqueTypes = [...new Set(records2.map((r) => r.type))];
     const rawSchemaVersion = Reflect.get(manifest2, "schemaVersion");
     const schemaVersion = typeof rawSchemaVersion === "number" && Number.isFinite(rawSchemaVersion) && rawSchemaVersion > 0 ? Math.trunc(rawSchemaVersion) : 1;
@@ -296,23 +316,20 @@ async function cmdExport(args) {
       records: records2
     };
     writeFileSync(resolve(output), JSON.stringify(bundle, null, 2), "utf8");
-    console.log(
-      c.green("\u2713") + ` ${records2.length} record(s) \u2192 ${c.bold(output)}`
-    );
-    if (uniqueTypes.length > 0)
-      console.log(c.muted(`  types: ${uniqueTypes.join(", ")}`));
+    console.log(`${c.green("\u2713")} ${records2.length} record(s) \u2192 ${c.bold(output)}`);
+    if (uniqueTypes.length > 0) console.log(c.muted(`  types: ${uniqueTypes.join(", ")}`));
     return;
   }
   const type = opt(args, "--type", "-t");
   const format = (opt(args, "--format", "-f") ?? "json").toLowerCase();
   if (!file || !type) {
     console.error(
-      c.red("\u2717") + " Usage: dotuix export <file.uix> --type <type> [--format json|csv] [-o file]"
+      `${c.red("\u2717")} Usage: dotuix export <file.uix> --type <type> [--format json|csv] [-o file]`
     );
     process.exit(1);
   }
   if (format !== "json" && format !== "csv") {
-    console.error(c.red("\u2717") + " --format must be json or csv");
+    console.error(`${c.red("\u2717")} --format must be json or csv`);
     process.exit(1);
   }
   const data = new Uint8Array(readFileSync(resolve(file)));
@@ -326,9 +343,7 @@ async function cmdExport(args) {
   const records = stateDb.find({ type });
   stateDb.close();
   if (records.length === 0) {
-    console.log(
-      c.yellow("\u26A0") + ` No records of type "${type}" found in state.db`
-    );
+    console.log(`${c.yellow("\u26A0")} No records of type "${type}" found in state.db`);
     return;
   }
   const rows = records.map((r) => {
@@ -357,14 +372,12 @@ async function cmdExport(args) {
     };
     content = [
       keys.join(","),
-      ...rows.map(
-        (r) => keys.map((k) => esc(r[k])).join(",")
-      )
+      ...rows.map((r) => keys.map((k) => esc(r[k])).join(","))
     ].join("\n");
   }
   if (outFile) {
     writeFileSync(resolve(outFile), content, "utf8");
-    console.log(c.green("\u2713") + ` ${rows.length} record(s) \u2192 ${outFile}`);
+    console.log(`${c.green("\u2713")} ${rows.length} record(s) \u2192 ${outFile}`);
   } else {
     console.log(content);
   }
@@ -375,7 +388,7 @@ async function cmdImport(args) {
   const merge = flag(args, "--merge");
   if (!file || !dataFile) {
     console.error(
-      c.red("\u2717") + " Usage: dotuix import <file.uix> --data <bundle.uixdata> [--merge]"
+      `${c.red("\u2717")} Usage: dotuix import <file.uix> --data <bundle.uixdata> [--merge]`
     );
     process.exit(1);
   }
@@ -383,7 +396,7 @@ async function cmdImport(args) {
   try {
     bundleRaw = readFileSync(resolve(dataFile), "utf8");
   } catch {
-    console.error(c.red("\u2717") + ` Cannot read bundle: ${dataFile}`);
+    console.error(`${c.red("\u2717")} Cannot read bundle: ${dataFile}`);
     process.exit(1);
     return;
   }
@@ -391,39 +404,33 @@ async function cmdImport(args) {
   try {
     bundle = JSON.parse(bundleRaw);
   } catch {
-    console.error(c.red("\u2717") + " Invalid JSON in bundle file");
+    console.error(`${c.red("\u2717")} Invalid JSON in bundle file`);
     process.exit(1);
     return;
   }
   if (bundle.format !== "uixdata/1.0") {
-    console.error(
-      c.red("\u2717") + ` Unsupported bundle format: "${bundle.format}"`
-    );
+    console.error(`${c.red("\u2717")} Unsupported bundle format: "${bundle.format}"`);
     process.exit(1);
   }
   if (!Array.isArray(bundle.records)) {
-    console.error(c.red("\u2717") + " Bundle has no records array");
+    console.error(`${c.red("\u2717")} Bundle has no records array`);
     process.exit(1);
   }
   if (bundle.checksum) {
-    const expected = "sha256:" + createHash("sha256").update(JSON.stringify(bundle.records)).digest("hex");
+    const expected = `sha256:${createHash("sha256").update(JSON.stringify(bundle.records)).digest("hex")}`;
     if (bundle.checksum !== expected) {
-      console.error(
-        c.red("\u2717") + " Checksum mismatch \u2014 bundle may be corrupted or tampered with"
-      );
+      console.error(`${c.red("\u2717")} Checksum mismatch \u2014 bundle may be corrupted or tampered with`);
       process.exit(1);
     }
   } else {
-    console.log(
-      c.yellow("\u26A0") + " No checksum in bundle \u2014 skipping integrity check"
-    );
+    console.log(`${c.yellow("\u26A0")} No checksum in bundle \u2014 skipping integrity check`);
   }
   const uixPath = resolve(file);
   let uixData;
   try {
     uixData = new Uint8Array(readFileSync(uixPath));
   } catch {
-    console.error(c.red("\u2717") + ` Cannot read .uix file: ${file}`);
+    console.error(`${c.red("\u2717")} Cannot read .uix file: ${file}`);
     process.exit(1);
     return;
   }
@@ -431,7 +438,7 @@ async function cmdImport(args) {
   const iManifest = readManifestFromBuffer(uixData);
   if (bundle.appId && bundle.appId !== iManifest.id) {
     console.log(
-      c.yellow("\u26A0") + ` Bundle appId "${bundle.appId}" differs from target "${iManifest.id}"`
+      `${c.yellow("\u26A0")} Bundle appId "${bundle.appId}" differs from target "${iManifest.id}"`
     );
   }
   const stateDb = await createState({
@@ -459,30 +466,27 @@ async function cmdImport(args) {
     );
     imported++;
   }
-  const newStateDb = stateDb.export();
+  const newStateDb = stateDb.serialize();
   stateDb.close();
   const updatedFiles = { ...iFiles, "state.db": newStateDb };
   const packed = packBuffer(updatedFiles);
   atomicWriteFile(uixPath, packed);
   console.log(
-    c.green("\u2713") + ` Imported ${c.bold(String(imported))} record(s) into ${c.bold(
-      basename(file)
-    )}`
+    `${c.green("\u2713")} Imported ${c.bold(String(imported))} record(s) into ${c.bold(basename(file))}`
   );
-  if (skipped > 0)
-    console.log(c.muted(`  ${skipped} skipped (already exists)`));
+  if (skipped > 0) console.log(c.muted(`  ${skipped} skipped (already exists)`));
 }
 async function cmdInspectData(args) {
   const file = pos(args)[0];
   if (!file) {
-    console.error(c.red("\u2717") + " Usage: dotuix inspect-data <bundle.uixdata>");
+    console.error(`${c.red("\u2717")} Usage: dotuix inspect-data <bundle.uixdata>`);
     process.exit(1);
   }
   let bundleRaw;
   try {
     bundleRaw = readFileSync(resolve(file), "utf8");
   } catch {
-    console.error(c.red("\u2717") + ` Cannot read file: ${file}`);
+    console.error(`${c.red("\u2717")} Cannot read file: ${file}`);
     process.exit(1);
     return;
   }
@@ -490,24 +494,22 @@ async function cmdInspectData(args) {
   try {
     bundle = JSON.parse(bundleRaw);
   } catch {
-    console.error(c.red("\u2717") + " Invalid JSON");
+    console.error(`${c.red("\u2717")} Invalid JSON`);
     process.exit(1);
     return;
   }
-  if (bundle["format"] !== "uixdata/1.0") {
-    console.error(
-      c.red("\u2717") + ` Unsupported bundle format: "${bundle["format"]}"`
-    );
+  if (bundle.format !== "uixdata/1.0") {
+    console.error(`${c.red("\u2717")} Unsupported bundle format: "${bundle.format}"`);
     process.exit(1);
   }
-  const records = bundle["records"] ?? [];
+  const records = bundle.records ?? [];
   let checksumStatus = c.muted("(none)");
   let checksumOk = true;
-  if (bundle["checksum"]) {
-    const expected = "sha256:" + createHash("sha256").update(JSON.stringify(records)).digest("hex");
-    checksumOk = bundle["checksum"] === expected;
-    const short = bundle["checksum"].slice(0, 16) + "\u2026";
-    checksumStatus = checksumOk ? c.green("\u2713") + " " + c.muted(short) : c.red("\u2717") + " " + c.red("MISMATCH") + " " + c.muted(short);
+  if (bundle.checksum) {
+    const expected = `sha256:${createHash("sha256").update(JSON.stringify(records)).digest("hex")}`;
+    checksumOk = bundle.checksum === expected;
+    const short = `${bundle.checksum.slice(0, 16)}\u2026`;
+    checksumStatus = checksumOk ? `${c.green("\u2713")} ${c.muted(short)}` : `${c.red("\u2717")} ${c.red("MISMATCH")} ${c.muted(short)}`;
   }
   const countByType = {};
   for (const r of records) {
@@ -515,17 +517,11 @@ async function cmdInspectData(args) {
   }
   console.log(`
   ${c.bold(basename(file))}`);
-  console.log(`  ${c.muted("format:")}     ${bundle["format"]}`);
-  console.log(
-    `  ${c.muted("appId:")}      ${bundle["appId"] ?? c.muted("(none)")}`
-  );
-  console.log(`  ${c.muted("schema:")}     v${bundle["schemaVersion"] ?? 1}`);
-  console.log(
-    `  ${c.muted("exported:")}   ${bundle["exportedAt"] ?? c.muted("(unknown)")}`
-  );
-  console.log(
-    `  ${c.muted("by:")}         ${bundle["exportedBy"] ?? c.muted("(unknown)")}`
-  );
+  console.log(`  ${c.muted("format:")}     ${bundle.format}`);
+  console.log(`  ${c.muted("appId:")}      ${bundle.appId ?? c.muted("(none)")}`);
+  console.log(`  ${c.muted("schema:")}     v${bundle.schemaVersion ?? 1}`);
+  console.log(`  ${c.muted("exported:")}   ${bundle.exportedAt ?? c.muted("(unknown)")}`);
+  console.log(`  ${c.muted("by:")}         ${bundle.exportedBy ?? c.muted("(unknown)")}`);
   console.log(`  ${c.muted("checksum:")}   ${checksumStatus}`);
   console.log(`  ${c.muted("records:")}    ${records.length} total`);
   if (Object.keys(countByType).length > 0) {
@@ -595,26 +591,22 @@ async function cmdInit(args) {
   const dir = resolve(name);
   const slug = basename(name).toLowerCase().replace(/[^a-z0-9]+/g, "");
   if (existsSync(dir)) {
-    console.error(c.red("\u2717") + ` Already exists: ${dir}`);
+    console.error(`${c.red("\u2717")} Already exists: ${dir}`);
     process.exit(1);
   }
   mkdirSync(dir, { recursive: true });
   if (templateArg) {
     if (!KNOWN_TEMPLATES.includes(templateArg)) {
       console.error(
-        c.red("\u2717") + ` Unknown template "${templateArg}". Available: ${KNOWN_TEMPLATES.join(
-          ", "
-        )}`
+        `${c.red("\u2717")} Unknown template "${templateArg}". Available: ${KNOWN_TEMPLATES.join(", ")}`
       );
       process.exit(1);
     }
     const tmplDir = join(__dirname, "templates", templateArg);
     if (!existsSync(tmplDir)) {
       console.error(
-        c.red("\u2717") + ` Template files not found at ${tmplDir}.
-  Run ${c.cyan(
-          "pnpm --filter @dotuix/cli build"
-        )} to rebuild the CLI.`
+        `${c.red("\u2717")} Template files not found at ${tmplDir}.
+  Run ${c.cyan("pnpm --filter @dotuix/cli build")} to rebuild the CLI.`
       );
       process.exit(1);
     }
@@ -627,9 +619,7 @@ async function cmdInit(args) {
     const files = readdirSync(dir);
     console.log(
       `
-  ${c.green("\u2713")} Created ${c.bold(name)}/ from template ${c.cyan(
-        templateArg
-      )}
+  ${c.green("\u2713")} Created ${c.bold(name)}/ from template ${c.cyan(templateArg)}
 `
     );
     for (const f of files) console.log(`    ${c.muted("+")} ${f}`);
@@ -641,8 +631,7 @@ async function cmdInit(args) {
     console.log(`
   ${c.green("\u2713")} Created ${c.bold(name)}/
 `);
-    for (const f of Object.keys(SCAFFOLD))
-      console.log(`    ${c.muted("+")} ${f}`);
+    for (const f of Object.keys(SCAFFOLD)) console.log(`    ${c.muted("+")} ${f}`);
   }
   console.log(`
   Next:
@@ -653,13 +642,14 @@ async function cmdInit(args) {
 `);
 }
 function cmdKeygen(args) {
-  const base = (opt(args, "-o", "--out") ?? pos(args)[0] ?? "dotuix-key").replace(/\.(priv|pub)$/, "");
+  const base = (opt(args, "-o", "--out") ?? pos(args)[0] ?? "dotuix-key").replace(
+    /\.(priv|pub)$/,
+    ""
+  );
   const privPath = resolve(`${base}.priv`);
   const pubPath = resolve(`${base}.pub`);
   if (existsSync(privPath) || existsSync(pubPath)) {
-    console.error(
-      c.red("\u2717") + ` Key files already exist: ${base}.priv / ${base}.pub`
-    );
+    console.error(`${c.red("\u2717")} Key files already exist: ${base}.priv / ${base}.pub`);
     process.exit(1);
   }
   const kp = generateKeyPair();
@@ -678,9 +668,7 @@ async function cmdSign(args) {
   const file = pos(args)[0];
   const keyFile = opt(args, "--key", "-k");
   if (!file || !keyFile) {
-    console.error(
-      c.red("\u2717") + " Usage: dotuix sign <file.uix> --key <keyfile.priv> [-o out.uix]"
-    );
+    console.error(`${c.red("\u2717")} Usage: dotuix sign <file.uix> --key <keyfile.priv> [-o out.uix]`);
     process.exit(1);
   }
   const absFile = resolve(file);
@@ -689,13 +677,13 @@ async function cmdSign(args) {
   const privKeyBytes = Buffer.from(privKeyStr, "base64url");
   if (privKeyBytes.length !== 32) {
     console.error(
-      c.red("\u2717") + " Key file does not contain a valid 32-byte Ed25519 private key seed"
+      `${c.red("\u2717")} Key file does not contain a valid 32-byte Ed25519 private key seed`
     );
     process.exit(1);
   }
   console.log(c.muted(`Signing ${basename(absFile)} \u2026`));
   sign(absFile, privKeyBytes, out);
-  console.log(c.green("\u2713") + " Signed " + c.bold(basename(out)));
+  console.log(`${c.green("\u2713")} Signed ${c.bold(basename(out))}`);
 }
 async function cmdEncrypt(args) {
   const file = pos(args)[0];
@@ -704,7 +692,7 @@ async function cmdEncrypt(args) {
   const pathsArg = opt(args, "--paths");
   if (!file || !pin) {
     console.error(
-      c.red("\u2717") + " Usage: dotuix encrypt <file.uix> --pin <PIN> [--paths a,b,...] [-o out.uix]"
+      `${c.red("\u2717")} Usage: dotuix encrypt <file.uix> --pin <PIN> [--paths a,b,...] [-o out.uix]`
     );
     process.exit(1);
   }
@@ -715,7 +703,7 @@ async function cmdEncrypt(args) {
   const files = unpackBuffer(raw);
   const manifestStr = new TextDecoder().decode(files["manifest.json"]);
   if (!manifestStr) {
-    console.error(c.red("\u2717") + " manifest.json not found in archive");
+    console.error(`${c.red("\u2717")} manifest.json not found in archive`);
     process.exit(1);
   }
   const manifest = JSON.parse(manifestStr);
@@ -729,17 +717,13 @@ async function cmdEncrypt(args) {
     );
   }
   if (encryptedPaths.length === 0) {
-    console.error(c.red("\u2717") + " No paths matched for encryption");
+    console.error(`${c.red("\u2717")} No paths matched for encryption`);
     process.exit(1);
   }
   const salt = randomBytes(32);
   const iterations = 2e5;
   const key = pbkdf2Sync(pin, salt, iterations, 32, "sha256");
-  console.log(
-    c.muted(
-      `Encrypting ${encryptedPaths.length} file(s) in ${basename(absFile)} \u2026`
-    )
-  );
+  console.log(c.muted(`Encrypting ${encryptedPaths.length} file(s) in ${basename(absFile)} \u2026`));
   for (const p of encryptedPaths) {
     const plaintext = Buffer.from(files[p]);
     const nonce = randomBytes(12);
@@ -751,47 +735,38 @@ async function cmdEncrypt(args) {
     ]);
     files[p] = new Uint8Array(Buffer.concat([nonce, encrypted]));
   }
-  manifest["security"] = {
-    ...manifest["security"] ?? {},
+  manifest.security = {
+    ...manifest.security ?? {},
     auth: "pin",
-    kdfAlgorithm: "PBKDF2-SHA256",
+    kdf: "PBKDF2-SHA256",
     kdfIterations: iterations,
     keySalt: salt.toString("base64url"),
     encryptedPaths
   };
-  files["manifest.json"] = new TextEncoder().encode(
-    JSON.stringify(manifest, null, 2)
-  );
+  files["manifest.json"] = new TextEncoder().encode(JSON.stringify(manifest, null, 2));
   const packed = packBuffer(files);
-  writeFileSync(outFile, packed);
-  console.log(c.green("\u2713") + " Encrypted " + c.bold(outFile));
-  console.log(
-    `  ${c.muted("paths:")} ${encryptedPaths.length} file(s) encrypted`
-  );
-  console.log(
-    `  ${c.muted("auth:")}  PIN (PBKDF2-SHA256, ${iterations} iterations)`
-  );
-  console.log(
-    `
+  atomicWriteFile(outFile, packed);
+  console.log(`${c.green("\u2713")} Encrypted ${c.bold(outFile)}`);
+  console.log(`  ${c.muted("paths:")} ${encryptedPaths.length} file(s) encrypted`);
+  console.log(`  ${c.muted("auth:")}  PIN (PBKDF2-SHA256, ${iterations} iterations)`);
+  console.log(`
   ${c.yellow("\u26A0")} The PIN is not stored \u2014 share it separately.
-`
-  );
+`);
 }
 async function cmdVerify(args) {
   const file = pos(args)[0];
   if (!file) {
-    console.error(c.red("\u2717") + " Usage: dotuix verify <file.uix>");
+    console.error(`${c.red("\u2717")} Usage: dotuix verify <file.uix>`);
     process.exit(1);
   }
   const result = verify(resolve(file));
   if (result.valid) {
-    console.log(c.green("\u2713") + " Signature valid");
+    console.log(`${c.green("\u2713")} Signature valid`);
     console.log(`  ${c.muted("algorithm:")} Ed25519`);
     console.log(`  ${c.muted("publicKey:")} ${result.publicKey}`);
-    if (result.signedAt)
-      console.log(`  ${c.muted("signedAt:")}  ${result.signedAt}`);
+    if (result.signedAt) console.log(`  ${c.muted("signedAt:")}  ${result.signedAt}`);
   } else {
-    console.error(c.red("\u2717") + " " + (result.error ?? "Verification failed"));
+    console.error(`${c.red("\u2717")} ${result.error ?? "Verification failed"}`);
     process.exit(1);
   }
 }
@@ -800,44 +775,43 @@ async function cmdSeed(args) {
   const input = positional[0];
   if (!input) {
     console.error(
-      c.red("\u2717") + " Usage: dotuix seed <records.json> [-o data.db]\n  records.json must be a JSON array of { id?, type, body } objects."
+      `${c.red("\u2717")} Usage: dotuix seed <records.json> [-o data.db]
+  records.json must be a JSON array of { id?, type, body } objects.`
     );
     process.exit(1);
   }
   const inputPath = resolve(input);
   if (!existsSync(inputPath)) {
-    console.error(c.red("\u2717") + ` File not found: ${inputPath}`);
+    console.error(`${c.red("\u2717")} File not found: ${inputPath}`);
     process.exit(1);
   }
   let records;
   try {
     records = JSON.parse(readFileSync(inputPath, "utf8"));
-    if (!Array.isArray(records))
-      throw new Error("Root value must be a JSON array");
+    if (!Array.isArray(records)) throw new Error("Root value must be a JSON array");
   } catch (e) {
-    console.error(
-      c.red("\u2717") + ` Invalid JSON in ${input}: ${e.message}`
-    );
+    console.error(`${c.red("\u2717")} Invalid JSON in ${input}: ${e.message}`);
     process.exit(1);
   }
   const outPath = resolve(opt(args, "-o", "--output") ?? "data.db");
   const bytes = await createDataDb(records);
   writeFileSync(outPath, bytes);
   console.log(
-    c.green("\u2713") + ` Seeded ${c.bold(String(records.length))} records \u2192 ${c.cyan(outPath)}`
+    `${c.green("\u2713")} Seeded ${c.bold(String(records.length))} records \u2192 ${c.cyan(outPath)}`
   );
 }
 function cmdDeviceId(_args) {
   const idPath = viewerDeviceIdPath();
   if (!existsSync(idPath)) {
     console.error(
-      c.red("\u2717") + " No device ID found \u2014 launch the dotuix viewer on this machine first.\n" + c.muted(`  Expected: ${idPath}`)
+      `${c.red("\u2717")} No device ID found \u2014 launch the dotuix viewer on this machine first.
+${c.muted(`  Expected: ${idPath}`)}`
     );
     process.exit(1);
   }
   const id = readFileSync(idPath, "utf8").trim();
   if (!id) {
-    console.error(c.red("\u2717") + " Device ID file is empty.");
+    console.error(`${c.red("\u2717")} Device ID file is empty.`);
     process.exit(1);
   }
   console.log(`
@@ -845,9 +819,7 @@ function cmdDeviceId(_args) {
 `);
   console.log(`  ${c.cyan(id)}
 `);
-  console.log(
-    c.muted("  Share this with the app publisher to receive a license.\n")
-  );
+  console.log(c.muted("  Share this with the app publisher to receive a license.\n"));
 }
 async function cmdIssueLicense(args) {
   const appIdArg = opt(args, "--app-id");
@@ -861,7 +833,12 @@ async function cmdIssueLicense(args) {
   const outArg = opt(args, "-o", "--out");
   if (!issuedTo || !keyFile || !appIdArg && !fromArg) {
     console.error(
-      c.red("\u2717") + " Usage: dotuix issue-license (--app-id <id> | --from <file.uix>)\n                          --issued-to <name> --key <k.priv>\n                          [--expires YYYY-MM-DD] [--device-id <uuid>]\n                          [--features f1,f2] [--max-devices N]\n                          [-o out.uixlicense]\n"
+      `${c.red("\u2717")} Usage: dotuix issue-license (--app-id <id> | --from <file.uix>)
+                          --issued-to <name> --key <k.priv>
+                          [--expires YYYY-MM-DD] [--device-id <uuid>]
+                          [--features f1,f2] [--max-devices N]
+                          [-o out.uixlicense]
+`
     );
     process.exit(1);
   }
@@ -871,13 +848,11 @@ async function cmdIssueLicense(args) {
     appId = readManifestFromBuffer(uixData).id;
   }
   if (!appId) {
-    console.error(c.red("\u2717") + " Provide --app-id or --from <file.uix>");
+    console.error(`${c.red("\u2717")} Provide --app-id or --from <file.uix>`);
     process.exit(1);
   }
   if (expiresAt && !/^\d{4}-\d{2}-\d{2}$/.test(expiresAt)) {
-    console.error(
-      c.red("\u2717") + " --expires must be YYYY-MM-DD (e.g. 2027-05-21)"
-    );
+    console.error(`${c.red("\u2717")} --expires must be YYYY-MM-DD (e.g. 2027-05-21)`);
     process.exit(1);
   }
   let privKey;
@@ -885,17 +860,17 @@ async function cmdIssueLicense(args) {
     const raw = readFileSync(resolve(keyFile), "utf8").trim();
     privKey = new Uint8Array(Buffer.from(raw, "base64url"));
   } catch {
-    console.error(c.red("\u2717") + ` Cannot read key file: ${keyFile}`);
+    console.error(`${c.red("\u2717")} Cannot read key file: ${keyFile}`);
     process.exit(1);
   }
   if (privKey.length !== 32) {
     console.error(
-      c.red("\u2717") + " Key file does not contain a valid 32-byte Ed25519 private-key seed"
+      `${c.red("\u2717")} Key file does not contain a valid 32-byte Ed25519 private-key seed`
     );
     process.exit(1);
   }
   const features = featuresArg ? featuresArg.split(",").map((f) => f.trim()).filter(Boolean) : [];
-  const maxDevices = maxDevicesArg !== void 0 ? parseInt(maxDevicesArg, 10) : void 0;
+  const maxDevices = maxDevicesArg !== void 0 ? Number.parseInt(maxDevicesArg, 10) : void 0;
   const today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
   const payload = {
     appId,
@@ -904,8 +879,7 @@ async function cmdIssueLicense(args) {
     features
   };
   if (expiresAt) payload.expiresAt = expiresAt;
-  if (maxDevices !== void 0 && !isNaN(maxDevices))
-    payload.maxDevices = maxDevices;
+  if (maxDevices !== void 0 && !Number.isNaN(maxDevices)) payload.maxDevices = maxDevices;
   if (deviceId !== void 0) payload.deviceId = deviceId;
   const payloadCanon = JSON.stringify(sortKeysRec(payload));
   const msg = new TextEncoder().encode(`DOTUIX-LICENSE-V1
@@ -925,10 +899,8 @@ ${payloadCanon}`);
   console.log(`  ${c.muted("issuedTo:")}   ${issuedTo}`);
   console.log(`  ${c.muted("issuedAt:")}   ${today}`);
   if (expiresAt) console.log(`  ${c.muted("expiresAt:")}  ${expiresAt}`);
-  if (features.length > 0)
-    console.log(`  ${c.muted("features:")}   ${features.join(", ")}`);
-  if (maxDevices !== void 0)
-    console.log(`  ${c.muted("maxDevices:")} ${maxDevices}`);
+  if (features.length > 0) console.log(`  ${c.muted("features:")}   ${features.join(", ")}`);
+  if (maxDevices !== void 0) console.log(`  ${c.muted("maxDevices:")} ${maxDevices}`);
   if (deviceId) console.log(`  ${c.muted("deviceId:")}   ${deviceId}`);
   console.log(`  ${c.muted("publicKey:")}  ${pubKey}`);
   console.log(`
@@ -936,13 +908,7 @@ ${payloadCanon}`);
   ${c.muted(`  "license": { "required": true, "publisherKey": "${pubKey}" }`)}
 `);
 }
-var VITE_TEMPLATES = [
-  "vanilla-ts",
-  "react-ts",
-  "vue-ts",
-  "form",
-  "report"
-];
+var VITE_TEMPLATES = ["vanilla-ts", "react-ts", "vue-ts", "form", "report"];
 async function cmdCreate(args) {
   const templateArg = opt(args, "-t", "--template") ?? "vanilla-ts";
   const name = pos(args)[0] ?? "my-uix-app";
@@ -951,36 +917,24 @@ async function cmdCreate(args) {
   const displayName = basename(name);
   if (!VITE_TEMPLATES.includes(templateArg)) {
     console.error(
-      c.red("\u2717") + ` Unknown template "${templateArg}". Available: ${VITE_TEMPLATES.join(
-        ", "
-      )}`
+      `${c.red("\u2717")} Unknown template "${templateArg}". Available: ${VITE_TEMPLATES.join(", ")}`
     );
     process.exit(1);
   }
   if (existsSync(dir)) {
-    console.error(c.red("\u2717") + ` Already exists: ${dir}`);
+    console.error(`${c.red("\u2717")} Already exists: ${dir}`);
     process.exit(1);
   }
   const tmplDir = join(__dirname, "templates", templateArg);
   if (!existsSync(tmplDir)) {
     console.error(
-      c.red("\u2717") + ` Template files not found at ${tmplDir}.
-  Run ${c.cyan(
-        "pnpm --filter @dotuix/cli build"
-      )} to rebuild the CLI.`
+      `${c.red("\u2717")} Template files not found at ${tmplDir}.
+  Run ${c.cyan("pnpm --filter @dotuix/cli build")} to rebuild the CLI.`
     );
     process.exit(1);
   }
   cpSync(tmplDir, dir, { recursive: true });
-  const TEXT_EXTS2 = /* @__PURE__ */ new Set([
-    ".ts",
-    ".tsx",
-    ".vue",
-    ".json",
-    ".html",
-    ".css",
-    ".md"
-  ]);
+  const TEXT_EXTS2 = /* @__PURE__ */ new Set([".ts", ".tsx", ".vue", ".json", ".html", ".css", ".md"]);
   const allFiles = readdirSync(dir, { recursive: true });
   for (const rel of allFiles) {
     const abs = join(dir, rel);
@@ -988,20 +942,14 @@ async function cmdCreate(args) {
     if (!TEXT_EXTS2.has(extname(abs))) continue;
     const src = readFileSync(abs, "utf8");
     if (!src.includes("__SLUG__") && !src.includes("__NAME__")) continue;
-    writeFileSync(
-      abs,
-      src.replace(/__SLUG__/g, slug).replace(/__NAME__/g, displayName),
-      "utf8"
-    );
+    writeFileSync(abs, src.replace(/__SLUG__/g, slug).replace(/__NAME__/g, displayName), "utf8");
   }
   const created = readdirSync(dir, { recursive: true }).filter(
     (f) => !statSync(join(dir, f)).isDirectory()
   );
   console.log(
     `
-  ${c.green("\u2713")} Created ${c.bold(name)}/ from template ${c.cyan(
-      templateArg
-    )}
+  ${c.green("\u2713")} Created ${c.bold(name)}/ from template ${c.cyan(templateArg)}
 `
   );
   for (const f of created) console.log(`    ${c.muted("+")} ${f}`);
@@ -1010,9 +958,7 @@ async function cmdCreate(args) {
 
     ${c.cyan("cd")} ${name}
     ${c.cyan("pnpm install")}
-    ${c.cyan("pnpm dev")}       ${c.muted(
-    "# hot-reload dev server with uix bridge mock"
-  )}
+    ${c.cyan("pnpm dev")}       ${c.muted("# hot-reload dev server with uix bridge mock")}
 
   When ready to build:
 
@@ -1021,18 +967,14 @@ async function cmdCreate(args) {
 }
 function specSection(md, heading) {
   const esc = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const re = new RegExp(
-    `##\\s+${esc}[^\\n]*\\n([\\s\\S]*?)(?=\\n##\\s|$)`,
-    "i"
-  );
+  const re = new RegExp(`##\\s+${esc}[^\\n]*\\n([\\s\\S]*?)(?=\\n##\\s|$)`, "i");
   return (re.exec(md)?.[1] ?? "").trim();
 }
 function parseKV(text) {
   const kv = {};
   for (const line of text.split("\n")) {
     const m = line.match(/^[-*]\s+([\w][\w /-]*):\s*(.+)/);
-    if (m)
-      kv[m[1].trim().toLowerCase().replace(/\s+/g, "-")] = m[2].split("#")[0].trim();
+    if (m) kv[m[1].trim().toLowerCase().replace(/\s+/g, "-")] = m[2].split("#")[0].trim();
   }
   return kv;
 }
@@ -1044,8 +986,7 @@ function parseTable(text) {
   for (const line of text.split("\n")) {
     if (!line.includes("|")) continue;
     const cols = line.split("|").map((c2) => c2.trim()).filter(Boolean);
-    if (cols.length < 2 || /type/i.test(cols[0]) || /^[-|: ]+$/.test(cols[0]))
-      continue;
+    if (cols.length < 2 || /type/i.test(cols[0]) || /^[-|: ]+$/.test(cols[0])) continue;
     rows.push({
       type: cols[0],
       fields: cols[1].split(/[,;]/).map((f) => f.trim()).filter(Boolean)
@@ -1074,37 +1015,22 @@ function parseSpec(md) {
 function validateSpec(spec) {
   const errors = [];
   const warnings = [];
-  if (!spec.identity.id)
-    errors.push("Identity.id is required  (e.g.  - id: com.example.my-app)");
-  if (!spec.identity.name)
-    errors.push("Identity.name is required  (e.g.  - name: My App)");
-  if (spec.screens.length === 0)
-    errors.push("At least one screen is required in ## Screens");
+  if (!spec.identity.id) errors.push("Identity.id is required  (e.g.  - id: com.example.my-app)");
+  if (!spec.identity.name) errors.push("Identity.name is required  (e.g.  - name: My App)");
+  if (spec.screens.length === 0) errors.push("At least one screen is required in ## Screens");
   if (spec.identity.mode && !MANIFEST_MODES.includes(spec.identity.mode))
-    errors.push(
-      `Unknown mode "${spec.identity.mode}" \u2014 must be window or kiosk`
-    );
+    errors.push(`Unknown mode "${spec.identity.mode}" \u2014 must be window or kiosk`);
   if (spec.identity.state && !["device", "file"].includes(spec.identity.state))
-    errors.push(
-      `Unknown state "${spec.identity.state}" \u2014 must be device or file`
-    );
+    errors.push(`Unknown state "${spec.identity.state}" \u2014 must be device or file`);
   if (spec.dataModel.length === 0)
-    warnings.push(
-      "No data model \u2014 add a ## Data Model table if your app stores data"
-    );
-  if (!spec.identity.schemaVersion)
-    warnings.push("schemaVersion not set \u2014 will default to 1");
-  if (!spec.identity.state)
-    warnings.push("state not set \u2014 will default to device");
+    warnings.push("No data model \u2014 add a ## Data Model table if your app stores data");
+  if (!spec.identity.schemaVersion) warnings.push("schemaVersion not set \u2014 will default to 1");
+  if (!spec.identity.state) warnings.push("state not set \u2014 will default to device");
   if (!spec.theme.color) warnings.push("Theme color not set \u2014 using default");
   if (spec.permissions.length === 0)
-    warnings.push(
-      "No permissions listed \u2014 clipboard, notifications etc. will be unavailable"
-    );
+    warnings.push("No permissions listed \u2014 clipboard, notifications etc. will be unavailable");
   for (const permission of spec.permissions) {
-    if (!MANIFEST_PERMISSIONS.includes(
-      permission
-    )) {
+    if (!MANIFEST_PERMISSIONS.includes(permission)) {
       errors.push(
         `Unknown permission "${permission}" \u2014 must be one of: ${MANIFEST_PERMISSIONS.join(", ")}`
       );
@@ -1126,9 +1052,7 @@ function chooseTemplate(spec) {
   };
   if (map[fw]) return map[fw];
   if ((spec.identity.state ?? "device") === "file") {
-    return /form|input|fill|edit|write|submit/.test(
-      spec.screens.join(" ").toLowerCase()
-    ) ? "form" : "report";
+    return /form|input|fill|edit|write|submit/.test(spec.screens.join(" ").toLowerCase()) ? "form" : "report";
   }
   return "react-ts";
 }
@@ -1136,8 +1060,8 @@ function specToUixConfig(spec, slug) {
   const perms = spec.permissions.length > 0 ? spec.permissions : ["clipboard-write", "notifications"];
   return [
     `import { defineConfig } from "@dotuix/types";`,
-    ``,
-    `export default defineConfig({`,
+    "",
+    "export default defineConfig({",
     `  id: "${spec.identity.id ?? `com.example.${slug}`}",`,
     `  name: "${spec.identity.name ?? slug}",`,
     `  version: "1.0.0",`,
@@ -1148,7 +1072,7 @@ function specToUixConfig(spec, slug) {
     `  permissions: [${perms.map((p) => `"${p}"`).join(", ")}],`,
     `  network: "blocked",`,
     `  theme: { color: "${spec.theme.color ?? "#c8a96e"}", background: "${spec.theme.background ?? "#1a1a1a"}" },`,
-    `});`
+    "});"
   ].join("\n");
 }
 var SPEC_TEMPLATE = `# App Spec: My App
@@ -1198,7 +1122,7 @@ var SPEC_TEMPLATE = `# App Spec: My App
 function cmdSpecInit(args) {
   const outPath = resolve(pos(args)[0] ?? "app.spec.md");
   if (existsSync(outPath)) {
-    console.error(c.red("\u2717") + ` Already exists: ${outPath}`);
+    console.error(`${c.red("\u2717")} Already exists: ${outPath}`);
     process.exit(1);
   }
   writeFileSync(outPath, SPEC_TEMPLATE, "utf8");
@@ -1206,16 +1130,13 @@ function cmdSpecInit(args) {
   console.log(`
   ${c.green("\u2713")} Created ${c.bold(rel)}
 `);
-  console.log(`  Edit it, then:
-`);
-  console.log(`    ${c.cyan(`dotuix spec validate`)} ${rel}`);
-  console.log(`    ${c.cyan(`dotuix spec scaffold`)} ${rel}
+  console.log("  Edit it, then:\n");
+  console.log(`    ${c.cyan("dotuix spec validate")} ${rel}`);
+  console.log(`    ${c.cyan("dotuix spec scaffold")} ${rel}
 `);
 }
 function printSpecSummary(spec) {
-  console.log(
-    `  ${c.bold("App:")}         ${spec.identity.name ?? "(unnamed)"}`
-  );
+  console.log(`  ${c.bold("App:")}         ${spec.identity.name ?? "(unnamed)"}`);
   console.log(`  ${c.bold("ID:")}          ${spec.identity.id ?? "(not set)"}`);
   console.log(
     `  ${c.bold("Mode:")}        ${spec.identity.mode ?? "window"}  /  state: ${spec.identity.state ?? "device"}`
@@ -1223,25 +1144,21 @@ function printSpecSummary(spec) {
   console.log(`  ${c.bold("Template:")}    ${chooseTemplate(spec)}`);
   console.log(`  ${c.bold("Screens:")}     ${spec.screens.length}`);
   if (spec.dataModel.length > 0)
-    console.log(
-      `  ${c.bold("Data types:")} ${spec.dataModel.map((d) => d.type).join(", ")}`
-    );
+    console.log(`  ${c.bold("Data types:")} ${spec.dataModel.map((d) => d.type).join(", ")}`);
   console.log();
 }
 function cmdSpecValidate(args) {
   const specPath = resolve(pos(args)[0] ?? "app.spec.md");
   if (!existsSync(specPath)) {
-    console.error(c.red("\u2717") + ` File not found: ${specPath}`);
+    console.error(`${c.red("\u2717")} File not found: ${specPath}`);
     process.exit(1);
   }
   const spec = parseSpec(readFileSync(specPath, "utf8"));
   const { errors, warnings } = validateSpec(spec);
   if (errors.length > 0) {
-    console.log(
-      `
+    console.log(`
   ${c.red("\u2717")} ${errors.length} error${errors.length > 1 ? "s" : ""}:
-`
-    );
+`);
     for (const e of errors) console.log(`    ${c.red("\u2022")} ${e}`);
   }
   if (warnings.length > 0) {
@@ -1255,7 +1172,8 @@ function cmdSpecValidate(args) {
   if (errors.length === 0) {
     console.log(
       `
-  ${c.green("\u2713")} Spec is valid` + (warnings.length > 0 ? ` (${warnings.length} warning${warnings.length > 1 ? "s" : ""})` : "") + " \u2014 ready to hand to AI\n"
+  ${c.green("\u2713")} Spec is valid${warnings.length > 0 ? ` (${warnings.length} warning${warnings.length > 1 ? "s" : ""})` : ""} \u2014 ready to hand to AI
+`
     );
     printSpecSummary(spec);
   } else {
@@ -1265,15 +1183,13 @@ function cmdSpecValidate(args) {
 function cmdSpecScaffold(args) {
   const specPath = resolve(pos(args)[0] ?? "app.spec.md");
   if (!existsSync(specPath)) {
-    console.error(c.red("\u2717") + ` File not found: ${specPath}`);
+    console.error(`${c.red("\u2717")} File not found: ${specPath}`);
     process.exit(1);
   }
   const spec = parseSpec(readFileSync(specPath, "utf8"));
   const { errors } = validateSpec(spec);
   if (errors.length > 0) {
-    console.error(
-      c.red("\u2717") + ` Spec has errors. Run ${c.cyan("dotuix spec validate")} first.`
-    );
+    console.error(`${c.red("\u2717")} Spec has errors. Run ${c.cyan("dotuix spec validate")} first.`);
     process.exit(1);
   }
   const displayName = spec.identity.name ?? "my-app";
@@ -1306,8 +1222,7 @@ function cmdSpecScaffold(args) {
   console.log(`
   ${c.bold("Generated uix.config.ts:")}
 `);
-  for (const line of configContent.split("\n"))
-    console.log(`    ${c.muted(line)}`);
+  for (const line of configContent.split("\n")) console.log(`    ${c.muted(line)}`);
   if (spec.dataModel.length > 0) {
     console.log(
       `
@@ -1317,17 +1232,13 @@ function cmdSpecScaffold(args) {
 `
     );
     for (const d of spec.dataModel)
-      console.log(
-        `    ${c.cyan(d.type.padEnd(14))} ${c.muted(d.fields.join(", "))}`
-      );
+      console.log(`    ${c.cyan(d.type.padEnd(14))} ${c.muted(d.fields.join(", "))}`);
   }
   if (spec.screens.length > 0) {
     console.log(`
   ${c.bold(`Screens (${spec.screens.length}):`)}
 `);
-    spec.screens.forEach(
-      (s, i) => console.log(`    ${c.muted(`${i + 1}.`)} ${s}`)
-    );
+    spec.screens.forEach((s, i) => console.log(`    ${c.muted(`${i + 1}.`)} ${s}`));
   }
   if (spec.seedData.length > 0) {
     console.log(`
@@ -1339,9 +1250,7 @@ function cmdSpecScaffold(args) {
   ${c.bold("Next steps:")}
 `);
   console.log(`    1. ${c.cyan(`dotuix create ${slug} -t ${template}`)}`);
-  console.log(
-    `    2. Ask your AI to implement the screens from ${basename(specPath)}`
-  );
+  console.log(`    2. Ask your AI to implement the screens from ${basename(specPath)}`);
   console.log(`    3. ${c.cyan("pnpm install && pnpm dev")}`);
   console.log(`    4. ${c.cyan("pnpm build")} ${c.muted(`# \u2192 ${slug}.uix`)}
 `);
@@ -1349,9 +1258,7 @@ function cmdSpecScaffold(args) {
 async function cmdSpec(args) {
   const sub = args[0];
   if (!sub) {
-    console.error(
-      c.red("\u2717") + " Usage: dotuix spec <validate|scaffold|init> [args]"
-    );
+    console.error(`${c.red("\u2717")} Usage: dotuix spec <validate|scaffold|init> [args]`);
     process.exit(1);
   }
   const subArgs = args.slice(1);
@@ -1367,31 +1274,25 @@ async function cmdSpec(args) {
     cmdSpecInit(subArgs);
     return;
   }
-  console.error(
-    c.red("\u2717") + ` Unknown spec subcommand "${sub}". Use: validate, scaffold, init`
-  );
+  console.error(`${c.red("\u2717")} Unknown spec subcommand "${sub}". Use: validate, scaffold, init`);
   process.exit(1);
 }
 function resolveViteBin(projectDir) {
   const isWin = process.platform === "win32";
-  const bin = join(
-    projectDir,
-    "node_modules",
-    ".bin",
-    isWin ? "vite.cmd" : "vite"
-  );
+  const bin = join(projectDir, "node_modules", ".bin", isWin ? "vite.cmd" : "vite");
   return existsSync(bin) ? bin : null;
 }
 function cmdBuild(args) {
   const projectDir = pos(args)[0] ? resolve(pos(args)[0]) : process.cwd();
   if (!existsSync(projectDir)) {
-    console.error(c.red("\u2717") + ` Directory not found: ${projectDir}`);
+    console.error(`${c.red("\u2717")} Directory not found: ${projectDir}`);
     process.exit(1);
   }
   const viteBin = resolveViteBin(projectDir);
   if (!viteBin) {
     console.error(
-      c.red("\u2717") + " vite not found in node_modules/.bin/\n" + c.muted("  Run: pnpm add -D vite @dotuix/vite-plugin")
+      `${c.red("\u2717")} vite not found in node_modules/.bin/
+${c.muted("  Run: pnpm add -D vite @dotuix/vite-plugin")}`
     );
     process.exit(1);
   }
@@ -1406,13 +1307,14 @@ function cmdBuild(args) {
 function cmdDev(args) {
   const projectDir = pos(args)[0] ? resolve(pos(args)[0]) : process.cwd();
   if (!existsSync(projectDir)) {
-    console.error(c.red("\u2717") + ` Directory not found: ${projectDir}`);
+    console.error(`${c.red("\u2717")} Directory not found: ${projectDir}`);
     process.exit(1);
   }
   const viteBin = resolveViteBin(projectDir);
   if (!viteBin) {
     console.error(
-      c.red("\u2717") + " vite not found in node_modules/.bin/\n" + c.muted("  Run: pnpm add -D vite @dotuix/vite-plugin")
+      `${c.red("\u2717")} vite not found in node_modules/.bin/
+${c.muted("  Run: pnpm add -D vite @dotuix/vite-plugin")}`
     );
     process.exit(1);
   }
@@ -1428,67 +1330,33 @@ function printHelp() {
   ${c.bold("Usage:")}  dotuix ${c.cyan("<command>")} [options]
 
   ${c.bold("Commands:")}
-    ${c.cyan(
-    "pack"
-  )}     <dir> [-o out.uix]                  Pack a folder \u2192 .uix
+    ${c.cyan("pack")}     <dir> [-o out.uix]                  Pack a folder \u2192 .uix
     ${c.cyan("unpack")}   <file.uix> [-o outDir]              Unpack a .uix file
-    ${c.cyan(
-    "validate"
-  )} <file.uix>                          Validate + offline checks
-    ${c.cyan(
-    "info"
-  )}     <file.uix>                          Show manifest details
-    ${c.cyan(
-    "init"
-  )}     [name] [-t restaurant|catalog|portfolio]  Scaffold a new project
-    ${c.cyan(
-    "export"
-  )}   <file.uix> --type <t>               Export state records (JSON/CSV)
+    ${c.cyan("validate")} <file.uix>                          Validate + offline checks
+    ${c.cyan("info")}     <file.uix>                          Show manifest details
+    ${c.cyan("init")}     [name] [-t restaurant|catalog|portfolio]  Scaffold a new project
+    ${c.cyan("export")}   <file.uix> --type <t>               Export state records (JSON/CSV)
                [--format json|csv] [-o file]
-    ${c.cyan(
-    "export"
-  )}   <file.uix> [--types t1,t2] -o bundle.uixdata  Export .uixdata bundle
-    ${c.cyan(
-    "import"
-  )}   <file.uix> --data bundle.uixdata [--merge]    Import .uixdata bundle
-    ${c.cyan(
-    "inspect-data"
-  )} <bundle.uixdata>                         Inspect a .uixdata bundle
-    ${c.cyan(
-    "keygen"
-  )}   [-o <base>]                         Generate Ed25519 key pair
+    ${c.cyan("export")}   <file.uix> [--types t1,t2] -o bundle.uixdata  Export .uixdata bundle
+    ${c.cyan("import")}   <file.uix> --data bundle.uixdata [--merge]    Import .uixdata bundle
+    ${c.cyan("inspect-data")} <bundle.uixdata>                         Inspect a .uixdata bundle
+    ${c.cyan("keygen")}   [-o <base>]                         Generate Ed25519 key pair
     ${c.cyan("sign")}     <file.uix> --key <k.priv> [-o out]  Sign a .uix file
     ${c.cyan("verify")}   <file.uix>                          Verify signature
-    ${c.cyan(
-    "encrypt"
-  )}  <file.uix> --pin <PIN> [-o out]     AES-256-GCM encrypt files
-    ${c.cyan(
-    "seed"
-  )}    <records.json> [-o data.db]         Create data.db from JSON records
-    ${c.cyan(
-    "issue-license"
-  )} --app-id <id>|--from <f.uix>     Issue a signed .uixlicense token
+    ${c.cyan("encrypt")}  <file.uix> --pin <PIN> [-o out]     AES-256-GCM encrypt files
+    ${c.cyan("seed")}    <records.json> [-o data.db]         Create data.db from JSON records
+    ${c.cyan("issue-license")} --app-id <id>|--from <f.uix>     Issue a signed .uixlicense token
                --issued-to <name> --key <k.priv>
                [--expires YYYY-MM-DD] [--device-id <uuid>]
                [--features f1,f2] [--max-devices N] [-o out.uixlicense]
-    ${c.cyan(
-    "device-id"
-  )}                                   Print this device's viewer ID
-    ${c.cyan(
-    "build"
-  )}    [project-dir]                        Run vite build \u2192 .uix
-    ${c.cyan(
-    "dev"
-  )}      [project-dir]                        Start dev server with bridge mock
+    ${c.cyan("device-id")}                                   Print this device's viewer ID
+    ${c.cyan("build")}    [project-dir]                        Run vite build \u2192 .uix
+    ${c.cyan("dev")}      [project-dir]                        Start dev server with bridge mock
     ${c.cyan(
     "create"
   )}   <name> [-t vanilla-ts|react-ts|vue-ts|form|report]  Scaffold a Vite project
-    ${c.cyan(
-    "spec init"
-  )}  [file]                               Create a starter app.spec.md
-    ${c.cyan(
-    "spec validate"
-  )} <spec.md>                            Validate a spec file
+    ${c.cyan("spec init")}  [file]                               Create a starter app.spec.md
+    ${c.cyan("spec validate")} <spec.md>                            Validate a spec file
     ${c.cyan(
     "spec scaffold"
   )} <spec.md> [-o dir]                   Preview template + config from spec
@@ -1579,16 +1447,12 @@ async function main() {
       await cmdSpec(rest);
       break;
     default:
-      console.error(
-        c.red("\u2717") + ` Unknown command: ${cmd}
-  Run dotuix --help`
-      );
+      console.error(`${c.red("\u2717")} Unknown command: ${cmd}
+  Run dotuix --help`);
       process.exit(1);
   }
 }
 main().catch((err) => {
-  console.error(
-    c.red("\u2717") + " " + (err instanceof Error ? err.message : String(err))
-  );
+  console.error(`${c.red("\u2717")} ${err instanceof Error ? err.message : String(err)}`);
   process.exit(1);
 });

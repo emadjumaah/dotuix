@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback } from "react";
-import type { UIXRecord } from "@dotuix/types";
+import type { UIXRecord } from '@dotuix/types';
+import { useCallback, useEffect, useState } from 'react';
 
 export function App() {
   const [items, setItems] = useState<UIXRecord[]>([]);
@@ -7,18 +7,20 @@ export function App() {
 
   const load = useCallback(async () => {
     const records = await uix.state.find({
-      type: "item",
-      orderBy: { field: "created_at", direction: "desc" },
+      type: 'item',
+      orderBy: { field: 'created_at', direction: 'desc' },
     });
     setItems(records);
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   async function addItem() {
     await uix.state.insert({
-      type: "item",
+      type: 'item',
       body: JSON.stringify({ label: `Item ${Date.now()}` }),
     });
     await load();

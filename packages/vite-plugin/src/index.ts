@@ -1,8 +1,8 @@
-import type { Plugin, ResolvedConfig } from "vite";
-import { MANIFEST_PERMISSIONS, UIX } from "@dotuix/core";
-import { join } from "node:path";
-import { readFile, mkdir, writeFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { existsSync } from 'node:fs';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { MANIFEST_PERMISSIONS, UIX } from '@dotuix/core';
+import type { Plugin, ResolvedConfig } from 'vite';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -14,11 +14,11 @@ interface UIXConfig {
   name: string;
   version: string;
   entry?: string;
-  mode?: "kiosk" | "window";
+  mode?: 'kiosk' | 'window';
   schemaVersion?: number;
-  state?: { mode?: "file" | "device"; seed?: boolean };
+  state?: { mode?: 'file' | 'device'; seed?: boolean };
   permissions?: string[];
-  network?: "blocked" | "allowed";
+  network?: 'blocked' | 'allowed';
   theme?: { color?: string; background?: string };
   author?: string;
   expires?: string;
@@ -52,12 +52,12 @@ export interface DotuixPluginOptions {
 
 function uixConfigToManifest(cfg: UIXConfig): Record<string, unknown> {
   const m: Record<string, unknown> = {
-    uix: "1.0",
+    uix: '1.0',
     id: cfg.id,
     name: cfg.name,
     version: cfg.version,
-    entry: cfg.entry ?? "index.html",
-    mode: cfg.mode ?? "window",
+    entry: cfg.entry ?? 'index.html',
+    mode: cfg.mode ?? 'window',
   };
   if (cfg.schemaVersion !== undefined) m.schemaVersion = cfg.schemaVersion;
   if (cfg.state !== undefined) m.state = cfg.state;
@@ -80,10 +80,10 @@ function buildDevBridgeScript(
   appVersion: string,
   schemaVersion: number,
 ): string {
-  const APP_ID  = JSON.stringify(appId);
+  const APP_ID = JSON.stringify(appId);
   const APP_NAME = JSON.stringify(appName);
-  const APP_VER  = JSON.stringify(appVersion);
-  const SCHEMA   = String(schemaVersion);
+  const APP_VER = JSON.stringify(appVersion);
+  const SCHEMA = String(schemaVersion);
   const DEFAULT_PERMISSIONS = JSON.stringify([...MANIFEST_PERMISSIONS]);
   return `(function () {
   if (window.__uix) return;
@@ -157,7 +157,27 @@ function buildDevBridgeScript(
       var q = typeof opts === 'string' ? { type: opts } : (opts || {});
       return idbAll('records', q.type ? 'by_type' : null, q.type || undefined).then(function (all) {
         if (q.where) all = all.filter(function (r) {
-          var b = tryParse(r.body); return Object.keys(q.where).every(function (k) { return b[k] === q.where[k]; });
+          var b = tryParse(r.body);
+          return Object.keys(q.where).every(function (k) {
+            var actual = (k==='id'||k==='type'||k==='created_at'||k==='updated_at') ? r[k] : b[k];
+            var cond = q.where[k];
+            if (cond !== null && typeof cond === 'object' && !Array.isArray(cond)) {
+              return Object.keys(cond).every(function (op) {
+                var v = cond[op];
+                if (op==='eq') return actual === v;
+                if (op==='neq') return actual !== v;
+                if (op==='gt') return actual > v;
+                if (op==='gte') return actual >= v;
+                if (op==='lt') return actual < v;
+                if (op==='lte') return actual <= v;
+                if (op==='like') return String(actual).indexOf(String(v).replace(/%/g,'')) !== -1;
+                if (op==='in') return (v||[]).indexOf(actual) !== -1;
+                if (op==='is_null') return v ? (actual==null) : (actual!=null);
+                throw new Error('Unknown where operator "'+op+'"');
+              });
+            }
+            return actual === cond;
+          });
         });
         if (q.orderBy) {
           var field = typeof q.orderBy === 'string' ? q.orderBy : q.orderBy.field;
@@ -175,7 +195,11 @@ function buildDevBridgeScript(
       return idbPut('records', rec).then(function () { return rec; });
     },
     update: function (id, body) {
-      return state.get(id).then(function (ex) { if (!ex) return; return idbPut('records', Object.assign({}, ex, { body: serBody(body), updated_at: Date.now() })); });
+      return state.get(id).then(function (ex) {
+        if (!ex) throw new Error('Record not found: ' + id);
+        var rec = Object.assign({}, ex, { body: serBody(body), updated_at: Date.now() });
+        return idbPut('records', rec).then(function () { return rec; });
+      });
     },
     upsert: function (r) {
       return state.get(r.id).then(function (ex) {
@@ -183,7 +207,7 @@ function buildDevBridgeScript(
         return idbPut('records', rec).then(function () { return rec; });
       });
     },
-    insertMany: function (recs) { return Promise.all((recs||[]).map(function(r){return state.insert(r);})).then(function(){}); },
+    insertMany: function (recs) { return Promise.all((recs||[]).map(function(r){return state.insert(r);})); },
     delete:  function (id)   { return idbDel('records', id); },
     purge:   function (opts) {
       var type = typeof opts === 'string' ? opts : (opts && opts.type);
@@ -203,7 +227,8 @@ function buildDevBridgeScript(
         if (op.op==='delete') return state.delete(op.id);
       }); }, Promise.resolve());
     },
-    size: function(){ return Promise.resolve(0); }, vacuum: function(){ return Promise.resolve(); },
+    size: function(){ return state.find(null).then(function(all){ var types={}, bytes=0; all.forEach(function(r){ types[r.type]=(types[r.type]||0)+1; bytes+=(r.body?String(r.body).length:0); }); return { bytes:bytes, records:all.length, types:types }; }); },
+    vacuum: function(){ return Promise.resolve({ before:0, after:0 }); },
     raw:  function(){ return Promise.resolve([]); }, sync: function(){ return Promise.resolve(); },
     export: function(opts){ return state.find(opts&&opts.type?{type:opts.type}:null).then(function(r){return JSON.stringify(r);}); },
     exportBundle: function(opts){
@@ -260,12 +285,13 @@ function buildDevBridgeScript(
       save: function(filename,content){
         var blob=content instanceof ArrayBuffer?new Blob([content]):new Blob([String(content)],{type:'text/plain'});
         var a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(blob),download:filename});
-        a.click(); URL.revokeObjectURL(a.href); return Promise.resolve();
+        a.click(); URL.revokeObjectURL(a.href); return Promise.resolve(true);
       },
       open: function(opts){
         return new Promise(function(res){
           var inp=document.createElement('input'); inp.type='file';
-          if (opts&&opts.filter) inp.accept=Array.isArray(opts.filter)?opts.filter.join(','):opts.filter;
+          var acc=opts&&(opts.accept||opts.filter);
+          if (acc) inp.accept=Array.isArray(acc)?acc.join(','):acc;
           inp.onchange=function(){ var f=inp.files&&inp.files[0]; if(!f){res(null);return;} var r=new FileReader(); r.onload=function(){res({name:f.name,content:r.result});}; r.readAsArrayBuffer(f); };
           inp.click();
         });
@@ -302,23 +328,23 @@ export function dotuix(options: DotuixPluginOptions = {}): Plugin {
   let baseManifest: Record<string, unknown> | null = null;
 
   return {
-    name: "vite-plugin-dotuix",
-    enforce: "pre",
+    name: 'vite-plugin-dotuix',
+    enforce: 'pre',
 
     config() {
-      return { base: "./" };
+      return { base: './' };
     },
 
     async configResolved(resolved) {
       resolvedConfig = resolved;
       const root = resolved.root;
 
-      const uixConfigPath = join(root, "uix.config.ts");
-      const manifestPath  = join(root, "manifest.json");
+      const uixConfigPath = join(root, 'uix.config.ts');
+      const manifestPath = join(root, 'manifest.json');
 
       if (existsSync(uixConfigPath)) {
         try {
-          const { loadConfigFromFile } = await import("vite");
+          const { loadConfigFromFile } = await import('vite');
           const result = await loadConfigFromFile(
             { command: resolved.command, mode: resolved.mode },
             uixConfigPath,
@@ -328,33 +354,31 @@ export function dotuix(options: DotuixPluginOptions = {}): Plugin {
             appConfig = result.config as unknown as UIXConfig;
           }
         } catch (e) {
-          resolved.logger.warn(
-            `[dotuix] Failed to load uix.config.ts: ${(e as Error).message}`,
-          );
+          resolved.logger.warn(`[dotuix] Failed to load uix.config.ts: ${(e as Error).message}`);
         }
       } else if (existsSync(manifestPath)) {
         try {
-          baseManifest = JSON.parse(
-            await readFile(manifestPath, "utf-8"),
-          ) as Record<string, unknown>;
+          baseManifest = JSON.parse(await readFile(manifestPath, 'utf-8')) as Record<
+            string,
+            unknown
+          >;
         } catch {
-          resolved.logger.warn("[dotuix] Failed to parse manifest.json");
+          resolved.logger.warn('[dotuix] Failed to parse manifest.json');
         }
       }
     },
 
     transformIndexHtml: {
-      order: "pre",
+      order: 'pre',
       handler(html) {
-        if (!mockBridge || resolvedConfig.command === "build") return html;
+        if (!mockBridge || resolvedConfig.command === 'build') return html;
 
-        const manifest =
-          appConfig ? uixConfigToManifest(appConfig) : (baseManifest ?? {});
+        const manifest = appConfig ? uixConfigToManifest(appConfig) : (baseManifest ?? {});
 
-        const id      = String(manifest.id            ?? "dev");
-        const name    = String(manifest.name          ?? "Dev Preview");
-        const version = String(manifest.version       ?? "0.0.0");
-        const schema  = Number(manifest.schemaVersion ?? 1);
+        const id = String(manifest.id ?? 'dev');
+        const name = String(manifest.name ?? 'Dev Preview');
+        const version = String(manifest.version ?? '0.0.0');
+        const schema = Number(manifest.schemaVersion ?? 1);
 
         const script = buildDevBridgeScript(id, name, version, schema);
         return html.replace(/<head>/i, `<head>\n<script>${script}</script>`);
@@ -362,38 +386,34 @@ export function dotuix(options: DotuixPluginOptions = {}): Plugin {
     },
 
     async closeBundle() {
-      if (resolvedConfig.command !== "build") return;
+      if (resolvedConfig.command !== 'build') return;
 
       const outDir = resolvedConfig.build.outDir;
-      const root   = resolvedConfig.root;
+      const root = resolvedConfig.root;
 
-      let manifest: Record<string, unknown> =
-        appConfig ? uixConfigToManifest(appConfig) : (baseManifest ?? {});
+      let manifest: Record<string, unknown> = appConfig
+        ? uixConfigToManifest(appConfig)
+        : (baseManifest ?? {});
 
       if (options.manifest) {
         manifest = { ...manifest, ...options.manifest };
       }
 
-      const required = ["uix", "id", "name", "version", "entry"];
-      const missing  = required.filter((f) => !manifest[f]);
+      const required = ['uix', 'id', 'name', 'version', 'entry'];
+      const missing = required.filter((f) => !manifest[f]);
       if (missing.length) {
         resolvedConfig.logger.warn(
-          `[dotuix] manifest is missing required fields: ${missing.join(", ")} — skipping .uix pack\n` +
-            `         Add a uix.config.ts or manifest.json to your project root.`,
+          `[dotuix] manifest is missing required fields: ${missing.join(', ')} — skipping .uix pack\n         Add a uix.config.ts or manifest.json to your project root.`,
         );
         return;
       }
 
       await mkdir(outDir, { recursive: true });
-      await writeFile(
-        join(outDir, "manifest.json"),
-        JSON.stringify(manifest, null, 2),
-        "utf-8",
-      );
+      await writeFile(join(outDir, 'manifest.json'), JSON.stringify(manifest, null, 2), 'utf-8');
 
-      const rawName = (manifest.id as string).split(".").pop() ?? "app";
-      const appName = rawName.replace(/[^a-z0-9_-]/gi, "-").toLowerCase();
-      const uixOut  = options.output ?? join(root, `${appName}.uix`);
+      const rawName = (manifest.id as string).split('.').pop() ?? 'app';
+      const appName = rawName.replace(/[^a-z0-9_-]/gi, '-').toLowerCase();
+      const uixOut = options.output ?? join(root, `${appName}.uix`);
 
       await UIX.pack(outDir, uixOut);
 

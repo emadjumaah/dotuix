@@ -1,9 +1,9 @@
-import { useState, useMemo } from "react";
-import type { CartItem, TaxRate } from "../types";
-import { qar } from "../utils";
+import { useMemo, useState } from 'react';
+import type { CartItem, TaxRate } from '../types';
+import { qar } from '../utils';
 
-type Method = "cash" | "card" | "split";
-type DiscountType = "pct" | "fixed";
+type Method = 'cash' | 'card' | 'split';
+type DiscountType = 'pct' | 'fixed';
 
 interface Props {
   cart: CartItem[];
@@ -20,24 +20,21 @@ interface Props {
 }
 
 export function CheckoutScreen({ cart, taxRates, onBack, onComplete }: Props) {
-  const [method, setMethod]           = useState<Method>("cash");
-  const [discountType, setDiscountType] = useState<DiscountType>("pct");
-  const [discountVal, setDiscountVal]  = useState("");
-  const [taxRateId, setTaxRateId]      = useState(
-    () => taxRates.find((t) => t.isDefault)?.id ?? taxRates[0]?.id ?? "",
+  const [method, setMethod] = useState<Method>('cash');
+  const [discountType, setDiscountType] = useState<DiscountType>('pct');
+  const [discountVal, setDiscountVal] = useState('');
+  const [taxRateId, setTaxRateId] = useState(
+    () => taxRates.find((t) => t.isDefault)?.id ?? taxRates[0]?.id ?? '',
   );
-  const [completing, setCompleting]    = useState(false);
+  const [completing, setCompleting] = useState(false);
 
   const rawSubtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
 
   const { discountAmt, subtotal, taxAmt, total, selectedTax } = useMemo(() => {
-    const dv = parseFloat(discountVal) || 0;
-    const dAmt =
-      discountType === "pct"
-        ? rawSubtotal * (dv / 100)
-        : Math.min(dv, rawSubtotal);
-    const sub  = rawSubtotal - dAmt;
-    const tax  = taxRates.find((t) => t.id === taxRateId) ?? taxRates[0];
+    const dv = Number.parseFloat(discountVal) || 0;
+    const dAmt = discountType === 'pct' ? rawSubtotal * (dv / 100) : Math.min(dv, rawSubtotal);
+    const sub = rawSubtotal - dAmt;
+    const tax = taxRates.find((t) => t.id === taxRateId) ?? taxRates[0];
     const tAmt = sub * ((tax?.rate ?? 0) / 100);
     return {
       discountAmt: dAmt,
@@ -55,7 +52,7 @@ export function CheckoutScreen({ cart, taxRates, onBack, onComplete }: Props) {
       discountAmt,
       taxAmt,
       taxRateId,
-      taxRateName: selectedTax?.name ?? "",
+      taxRateName: selectedTax?.name ?? '',
       taxRatePct: selectedTax?.rate ?? 0,
       method,
     });
@@ -63,16 +60,23 @@ export function CheckoutScreen({ cart, taxRates, onBack, onComplete }: Props) {
   }
 
   const METHODS: { id: Method; label: string }[] = [
-    { id: "cash",  label: "Cash"  },
-    { id: "card",  label: "Card"  },
-    { id: "split", label: "Split" },
+    { id: 'cash', label: 'Cash' },
+    { id: 'card', label: 'Card' },
+    { id: 'split', label: 'Split' },
   ];
 
   return (
     <div className="checkout-screen">
       <div className="checkout-header">
         <button className="back-btn" onClick={onBack}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} width={18} height={18}>
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            width={18}
+            height={18}
+          >
             <polyline points="15 18 9 12 15 6" />
           </svg>
         </button>
@@ -105,14 +109,14 @@ export function CheckoutScreen({ cart, taxRates, onBack, onComplete }: Props) {
                 onChange={(e) => setDiscountVal(e.target.value)}
               />
               <button
-                className={`disc-type-btn${discountType === "pct" ? " active" : ""}`}
-                onClick={() => setDiscountType("pct")}
+                className={`disc-type-btn${discountType === 'pct' ? ' active' : ''}`}
+                onClick={() => setDiscountType('pct')}
               >
                 %
               </button>
               <button
-                className={`disc-type-btn${discountType === "fixed" ? " active" : ""}`}
-                onClick={() => setDiscountType("fixed")}
+                className={`disc-type-btn${discountType === 'fixed' ? ' active' : ''}`}
+                onClick={() => setDiscountType('fixed')}
               >
                 QAR
               </button>
@@ -143,7 +147,7 @@ export function CheckoutScreen({ cart, taxRates, onBack, onComplete }: Props) {
               {METHODS.map(({ id, label }) => (
                 <button
                   key={id}
-                  className={`pay-btn${method === id ? " active" : ""}`}
+                  className={`pay-btn${method === id ? ' active' : ''}`}
                   onClick={() => setMethod(id)}
                 >
                   {label}
@@ -155,22 +159,27 @@ export function CheckoutScreen({ cart, taxRates, onBack, onComplete }: Props) {
           <div className="card-box">
             <h3 className="card-box-title">Summary</h3>
             <div className="summary-line">
-              <span>Subtotal</span><span>{qar(subtotal)}</span>
+              <span>Subtotal</span>
+              <span>{qar(subtotal)}</span>
             </div>
             <div className="summary-line">
               <span>
-                Discount{discountType === "pct" && parseFloat(discountVal) > 0
+                Discount
+                {discountType === 'pct' && Number.parseFloat(discountVal) > 0
                   ? ` (${discountVal}%)`
-                  : ""}
+                  : ''}
               </span>
               <span>- {qar(discountAmt)}</span>
             </div>
             <div className="summary-line">
-              <span>{selectedTax?.name ?? "Tax"} ({selectedTax?.rate ?? 0}%)</span>
+              <span>
+                {selectedTax?.name ?? 'Tax'} ({selectedTax?.rate ?? 0}%)
+              </span>
               <span>{qar(taxAmt)}</span>
             </div>
             <div className="summary-line total">
-              <span>Total</span><span>{qar(total)}</span>
+              <span>Total</span>
+              <span>{qar(total)}</span>
             </div>
           </div>
 
@@ -179,7 +188,7 @@ export function CheckoutScreen({ cart, taxRates, onBack, onComplete }: Props) {
             disabled={cart.length === 0 || completing}
             onClick={handleComplete}
           >
-            {completing ? "Processing…" : "Complete Order"}
+            {completing ? 'Processing…' : 'Complete Order'}
           </button>
         </div>
       </div>

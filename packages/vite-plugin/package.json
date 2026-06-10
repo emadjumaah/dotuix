@@ -11,16 +11,14 @@
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts --clean",
     "dev": "tsup src/index.ts --format esm --dts --watch",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@dotuix/core": "^0.2.6"
+    "@dotuix/core": "workspace:*"
   },
   "peerDependencies": {
     "vite": ">=5.0.0"
@@ -31,10 +29,6 @@
     "typescript": "^5.8.3",
     "vite": "^6.3.5"
   },
-  "keywords": [
-    "vite-plugin",
-    "dotuix",
-    "uix"
-  ],
+  "keywords": ["vite-plugin", "dotuix", "uix"],
   "license": "MIT"
 }

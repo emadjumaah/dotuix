@@ -1,18 +1,18 @@
-type ObservabilitySeverity = "info" | "warn" | "error";
+type ObservabilitySeverity = 'info' | 'warn' | 'error';
 
 type JsonPrimitive = string | number | boolean | null;
 type JsonObject = Record<string, JsonPrimitive>;
 
 export type DesktopEventCode =
-  | "desktop.trust_gate.blocked"
-  | "desktop.trust_gate.passed"
-  | "desktop.bridge.origin_rejected"
-  | "desktop.bridge.payload_rejected"
-  | "desktop.viewer.iframe_load_failed"
-  | "desktop.viewer.frame_init_timeout"
-  | "desktop.viewer.runtime_error"
-  | "desktop.sync.request_failed"
-  | "desktop.sync.request_succeeded";
+  | 'desktop.trust_gate.blocked'
+  | 'desktop.trust_gate.passed'
+  | 'desktop.bridge.origin_rejected'
+  | 'desktop.bridge.payload_rejected'
+  | 'desktop.viewer.iframe_load_failed'
+  | 'desktop.viewer.frame_init_timeout'
+  | 'desktop.viewer.runtime_error'
+  | 'desktop.sync.request_failed'
+  | 'desktop.sync.request_succeeded';
 
 export interface DesktopEvent {
   code: DesktopEventCode;
@@ -24,8 +24,8 @@ export interface DesktopEvent {
 
 const OBSERVABILITY_ENABLED = (() => {
   try {
-    const raw = window.localStorage.getItem("dotuix.observability.enabled");
-    return (raw ?? "true").toLowerCase() !== "false";
+    const raw = window.localStorage.getItem('dotuix.observability.enabled');
+    return (raw ?? 'true').toLowerCase() !== 'false';
   } catch {
     return true;
   }
@@ -34,8 +34,8 @@ const OBSERVABILITY_ENABLED = (() => {
 function sinkBySeverity(
   severity: ObservabilitySeverity,
 ): typeof console.info | typeof console.warn | typeof console.error {
-  if (severity === "error") return console.error;
-  if (severity === "warn") return console.warn;
+  if (severity === 'error') return console.error;
+  if (severity === 'warn') return console.warn;
   return console.info;
 }
 
@@ -44,7 +44,7 @@ export function emitDesktopEvent(event: DesktopEvent): void {
 
   const payload = {
     schemaVersion: 1,
-    component: "desktop-viewer",
+    component: 'desktop-viewer',
     ts: Date.now(),
     ...event,
   };

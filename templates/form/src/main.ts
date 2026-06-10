@@ -7,9 +7,9 @@
  * Sharing the file shares the filled-in content.
  */
 
-const RECORD_ID = "form:__SLUG__:data";
+const RECORD_ID = 'form:__SLUG__:data';
 
-const app = document.getElementById("app")!;
+const app = document.getElementById('app')!;
 
 app.innerHTML = `
   <header>
@@ -36,15 +36,15 @@ app.innerHTML = `
   </form>
 `;
 
-const fieldName  = document.getElementById("field-name")  as HTMLInputElement;
-const fieldEmail = document.getElementById("field-email") as HTMLInputElement;
-const fieldNotes = document.getElementById("field-notes") as HTMLTextAreaElement;
-const saveBtn    = document.getElementById("save-btn")!;
-const savedMsg   = document.getElementById("saved-msg")!;
-const printBtn   = document.getElementById("print-btn")!;
+const fieldName = document.getElementById('field-name') as HTMLInputElement;
+const fieldEmail = document.getElementById('field-email') as HTMLInputElement;
+const fieldNotes = document.getElementById('field-notes') as HTMLTextAreaElement;
+const saveBtn = document.getElementById('save-btn')!;
+const savedMsg = document.getElementById('saved-msg')!;
+const printBtn = document.getElementById('print-btn')!;
 
 interface FormData {
-  name:  string;
+  name: string;
   email: string;
   notes: string;
 }
@@ -53,27 +53,29 @@ async function load() {
   const rec = await uix.state.get(RECORD_ID);
   if (!rec) return;
   const data = JSON.parse(rec.body as string) as FormData;
-  fieldName.value  = data.name  ?? "";
-  fieldEmail.value = data.email ?? "";
-  fieldNotes.value = data.notes ?? "";
+  fieldName.value = data.name ?? '';
+  fieldEmail.value = data.email ?? '';
+  fieldNotes.value = data.notes ?? '';
 }
 
 async function save() {
   const data: FormData = {
-    name:  fieldName.value,
+    name: fieldName.value,
     email: fieldEmail.value,
     notes: fieldNotes.value,
   };
-  await uix.state.upsert({ id: RECORD_ID, type: "form-data", body: JSON.stringify(data) });
-  savedMsg.textContent = "Saved ✓";
-  setTimeout(() => { savedMsg.textContent = ""; }, 2000);
+  await uix.state.upsert({ id: RECORD_ID, type: 'form-data', body: JSON.stringify(data) });
+  savedMsg.textContent = 'Saved ✓';
+  setTimeout(() => {
+    savedMsg.textContent = '';
+  }, 2000);
 }
 
-document.getElementById("form-el")!.addEventListener("submit", (e) => {
+document.getElementById('form-el')?.addEventListener('submit', (e) => {
   e.preventDefault();
   save().catch(console.error);
 });
 
-printBtn.addEventListener("click", () => uix.print());
+printBtn.addEventListener('click', () => uix.print());
 
 load().catch(console.error);

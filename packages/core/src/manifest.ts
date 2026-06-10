@@ -1,15 +1,15 @@
-import { z } from "zod";
-import type { Manifest } from "./types.js";
+import { z } from 'zod';
 import {
   MANIFEST_MODES,
   MANIFEST_NETWORK_POLICIES,
   MANIFEST_PERMISSIONS,
   MANIFEST_SECURITY_AUTH,
+  MANIFEST_SECURITY_KDF,
   MANIFEST_SECURITY_KDF_DEFAULT_ITERATIONS,
   MANIFEST_SECURITY_KDF_MIN_ITERATIONS,
-  MANIFEST_SECURITY_KDF,
   MANIFEST_SIGNATURE_ALGORITHMS,
-} from "./generated/manifest-contract.generated.js";
+} from './generated/manifest-contract.generated.js';
+import type { Manifest } from './types.js';
 
 const PermissionSchema = z.enum(MANIFEST_PERMISSIONS);
 
@@ -26,15 +26,9 @@ const UIXSignatureSchema = z.object({
 
 const UIXSecuritySchema = z
   .object({
-    auth: z
-      .enum(MANIFEST_SECURITY_AUTH)
-      .optional()
-      .default(MANIFEST_SECURITY_AUTH[0]),
+    auth: z.enum(MANIFEST_SECURITY_AUTH).optional().default(MANIFEST_SECURITY_AUTH[0]),
     encryptedPaths: z.array(z.string()).optional().default([]),
-    kdf: z
-      .enum(MANIFEST_SECURITY_KDF)
-      .optional()
-      .default(MANIFEST_SECURITY_KDF[0]),
+    kdf: z.enum(MANIFEST_SECURITY_KDF).optional().default(MANIFEST_SECURITY_KDF[0]),
     kdfIterations: z
       .number()
       .int()
@@ -52,25 +46,22 @@ const UIXSecuritySchema = z
 // ---------------------------------------------------------------------------
 
 export const ManifestSchema = z.object({
-  uix: z.string({ required_error: "uix format version is required" }),
+  uix: z.string({ required_error: 'uix format version is required' }),
   id: z
-    .string({ required_error: "id is required" })
+    .string({ required_error: 'id is required' })
     .regex(
       /^[a-z][a-z0-9]*(\.[a-z][a-z0-9]*)+$/,
-      "id must be reverse-domain notation, e.g. com.almadina.menu",
+      'id must be reverse-domain notation, e.g. com.almadina.menu',
     ),
-  name: z.string({ required_error: "name is required" }),
-  version: z.string({ required_error: "version is required" }),
+  name: z.string({ required_error: 'name is required' }),
+  version: z.string({ required_error: 'version is required' }),
   minViewer: z.string().optional(),
-  entry: z.string({ required_error: "entry is required" }),
+  entry: z.string({ required_error: 'entry is required' }),
   mode: z.enum(MANIFEST_MODES, {
     required_error: 'mode is required — must be "kiosk" or "window"',
   }),
   permissions: z.array(PermissionSchema).optional().default([]),
-  network: z
-    .enum(MANIFEST_NETWORK_POLICIES)
-    .optional()
-    .default(MANIFEST_NETWORK_POLICIES[0]),
+  network: z.enum(MANIFEST_NETWORK_POLICIES).optional().default(MANIFEST_NETWORK_POLICIES[0]),
   theme: z
     .object({
       color: z.string().optional(),
@@ -111,11 +102,6 @@ export function parseManifest(raw: unknown): Manifest {
 /**
  * Parse and validate without throwing. Check `result.success` before accessing `result.data`.
  */
-export function safeParseManifest(
-  raw: unknown,
-): z.SafeParseReturnType<ManifestInput, Manifest> {
-  return ManifestSchema.safeParse(raw) as z.SafeParseReturnType<
-    ManifestInput,
-    Manifest
-  >;
+export function safeParseManifest(raw: unknown): z.SafeParseReturnType<ManifestInput, Manifest> {
+  return ManifestSchema.safeParse(raw) as z.SafeParseReturnType<ManifestInput, Manifest>;
 }

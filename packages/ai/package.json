@@ -2,15 +2,7 @@
   "name": "@dotuix/ai",
   "version": "0.1.4",
   "description": "One-function SDK for creating .uix files from AI-generated code",
-  "keywords": [
-    "uix",
-    "dotuix",
-    "ai",
-    "llm",
-    "code-generation",
-    "portable",
-    "offline"
-  ],
+  "keywords": ["uix", "dotuix", "ai", "llm", "code-generation", "portable", "offline"],
   "homepage": "https://github.com/dotuix/dotuix#readme",
   "repository": {
     "type": "git",
@@ -29,10 +21,7 @@
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": [
-    "dist",
-    "README.md"
-  ],
+  "files": ["dist", "README.md"],
   "publishConfig": {
     "access": "public"
   },

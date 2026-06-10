@@ -10,7 +10,10 @@ use tauri::{
     AppHandle, Emitter, Manager, State,
 };
 
-const VIEWER_VERSION: &str = "1.0.0";
+// Derived from Cargo.toml (kept in sync with tauri.conf.json) so the version
+// reported to apps, used for minViewer gating, and stamped into exports can
+// never drift from the real build.
+const VIEWER_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 // ---------------------------------------------------------------------------
 // App state
@@ -1118,10 +1121,17 @@ fn verify_signature(files: &HashMap<String, Vec<u8>>, manifest: &serde_json::Val
         .collect();
     paths.sort_unstable();
 
-    let mut payload = format!("DOTUIX-SIGN-V1\nmanifest:{manifest_canon}\n");
+    // Must match @dotuix/core sign.ts byte-for-byte: lines joined with "\n",
+    // with NO trailing newline (core uses `lines.join("\n")`). A trailing
+    // newline here makes desktop reject every CLI/core-signed file.
+    let mut lines: Vec<String> = vec![
+        "DOTUIX-SIGN-V1".to_string(),
+        format!("manifest:{manifest_canon}"),
+    ];
     for p in &paths {
-        payload.push_str(&format!("file:{p}:{}\n", sha256_hex(&files[*p])));
+        lines.push(format!("file:{p}:{}", sha256_hex(&files[*p])));
     }
+    let payload = lines.join("\n");
 
     use ed25519_dalek::{Signature, VerifyingKey, Verifier};
     let key_arr: [u8; 32] = pub_key_bytes.try_into()
@@ -4314,6 +4324,73 @@ mod tests {
         assert!(!csp.contains("connect-src 'self' uix: https:"));
         assert!(csp.contains("form-action 'none'"));
         assert!(!csp.contains("frame-ancestors"));
+    }
+
+    #[test]
+    fn signature_payload_matches_core_no_trailing_newline() {
+        use base64::Engine;
+        use ed25519_dalek::{Signer, SigningKey};
+
+        let seed: [u8; 32] = [7u8; 32];
+        let sk = SigningKey::from_bytes(&seed);
+        let vk_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .encode(sk.verifying_key().to_bytes());
+
+        let mut files: HashMap<String, Vec<u8>> = HashMap::new();
+        files.insert("index.html".into(), b"<html></html>".to_vec());
+        files.insert("app.js".into(), b"console.log(1)".to_vec());
+        files.insert("state.db".into(), b"IGNORED".to_vec()); // excluded from digest
+        files.insert("manifest.json".into(), b"{}".to_vec()); // excluded from digest
+
+        let mut manifest = json!({
+            "uix": "1.0", "id": "com.example.app", "name": "App",
+            "version": "1.0.0", "entry": "index.html", "mode": "window"
+        });
+
+        // Rebuild the canonical manifest exactly as verify_signature does.
+        let mut m2 = manifest.clone();
+        m2.as_object_mut().unwrap().remove("signature");
+        let manifest_canon = serde_json::to_string(&sort_json_keys(m2)).unwrap();
+
+        let mut paths: Vec<&str> = files
+            .keys()
+            .filter(|p| *p != "manifest.json" && *p != "state.db")
+            .map(String::as_str)
+            .collect();
+        paths.sort_unstable();
+
+        // @dotuix/core format: lines joined with "\n", NO trailing newline.
+        let mut lines = vec![
+            "DOTUIX-SIGN-V1".to_string(),
+            format!("manifest:{manifest_canon}"),
+        ];
+        for p in &paths {
+            lines.push(format!("file:{p}:{}", sha256_hex(&files[*p])));
+        }
+        let core_payload = lines.join("\n");
+
+        let sig = sk.sign(core_payload.as_bytes());
+        let sig_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(sig.to_bytes());
+        manifest.as_object_mut().unwrap().insert(
+            "signature".into(),
+            json!({
+                "algorithm": "Ed25519", "publicKey": vk_b64, "value": sig_b64,
+                "signedAt": "2026-01-01T00:00:00Z"
+            }),
+        );
+
+        // A core/CLI-signed package MUST verify on desktop.
+        assert!(verify_signature(&files, &manifest).is_ok());
+
+        // Regression guard: the old trailing-newline payload must NOT verify.
+        let legacy_payload = format!("{core_payload}\n");
+        let bad_sig = sk.sign(legacy_payload.as_bytes());
+        let bad_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bad_sig.to_bytes());
+        manifest.as_object_mut().unwrap()["signature"]
+            .as_object_mut()
+            .unwrap()
+            .insert("value".into(), json!(bad_b64));
+        assert!(verify_signature(&files, &manifest).is_err());
     }
 
     #[test]

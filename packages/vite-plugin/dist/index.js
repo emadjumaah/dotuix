@@ -1,8 +1,8 @@
 // src/index.ts
-import { MANIFEST_PERMISSIONS, UIX } from "@dotuix/core";
-import { join } from "path";
-import { readFile, mkdir, writeFile } from "fs/promises";
 import { existsSync } from "fs";
+import { mkdir, readFile, writeFile } from "fs/promises";
+import { join } from "path";
+import { MANIFEST_PERMISSIONS, UIX } from "@dotuix/core";
 function uixConfigToManifest(cfg) {
   const m = {
     uix: "1.0",
@@ -100,7 +100,27 @@ function buildDevBridgeScript(appId, appName, appVersion, schemaVersion) {
       var q = typeof opts === 'string' ? { type: opts } : (opts || {});
       return idbAll('records', q.type ? 'by_type' : null, q.type || undefined).then(function (all) {
         if (q.where) all = all.filter(function (r) {
-          var b = tryParse(r.body); return Object.keys(q.where).every(function (k) { return b[k] === q.where[k]; });
+          var b = tryParse(r.body);
+          return Object.keys(q.where).every(function (k) {
+            var actual = (k==='id'||k==='type'||k==='created_at'||k==='updated_at') ? r[k] : b[k];
+            var cond = q.where[k];
+            if (cond !== null && typeof cond === 'object' && !Array.isArray(cond)) {
+              return Object.keys(cond).every(function (op) {
+                var v = cond[op];
+                if (op==='eq') return actual === v;
+                if (op==='neq') return actual !== v;
+                if (op==='gt') return actual > v;
+                if (op==='gte') return actual >= v;
+                if (op==='lt') return actual < v;
+                if (op==='lte') return actual <= v;
+                if (op==='like') return String(actual).indexOf(String(v).replace(/%/g,'')) !== -1;
+                if (op==='in') return (v||[]).indexOf(actual) !== -1;
+                if (op==='is_null') return v ? (actual==null) : (actual!=null);
+                throw new Error('Unknown where operator "'+op+'"');
+              });
+            }
+            return actual === cond;
+          });
         });
         if (q.orderBy) {
           var field = typeof q.orderBy === 'string' ? q.orderBy : q.orderBy.field;
@@ -118,7 +138,11 @@ function buildDevBridgeScript(appId, appName, appVersion, schemaVersion) {
       return idbPut('records', rec).then(function () { return rec; });
     },
     update: function (id, body) {
-      return state.get(id).then(function (ex) { if (!ex) return; return idbPut('records', Object.assign({}, ex, { body: serBody(body), updated_at: Date.now() })); });
+      return state.get(id).then(function (ex) {
+        if (!ex) throw new Error('Record not found: ' + id);
+        var rec = Object.assign({}, ex, { body: serBody(body), updated_at: Date.now() });
+        return idbPut('records', rec).then(function () { return rec; });
+      });
     },
     upsert: function (r) {
       return state.get(r.id).then(function (ex) {
@@ -126,7 +150,7 @@ function buildDevBridgeScript(appId, appName, appVersion, schemaVersion) {
         return idbPut('records', rec).then(function () { return rec; });
       });
     },
-    insertMany: function (recs) { return Promise.all((recs||[]).map(function(r){return state.insert(r);})).then(function(){}); },
+    insertMany: function (recs) { return Promise.all((recs||[]).map(function(r){return state.insert(r);})); },
     delete:  function (id)   { return idbDel('records', id); },
     purge:   function (opts) {
       var type = typeof opts === 'string' ? opts : (opts && opts.type);
@@ -146,7 +170,8 @@ function buildDevBridgeScript(appId, appName, appVersion, schemaVersion) {
         if (op.op==='delete') return state.delete(op.id);
       }); }, Promise.resolve());
     },
-    size: function(){ return Promise.resolve(0); }, vacuum: function(){ return Promise.resolve(); },
+    size: function(){ return state.find(null).then(function(all){ var types={}, bytes=0; all.forEach(function(r){ types[r.type]=(types[r.type]||0)+1; bytes+=(r.body?String(r.body).length:0); }); return { bytes:bytes, records:all.length, types:types }; }); },
+    vacuum: function(){ return Promise.resolve({ before:0, after:0 }); },
     raw:  function(){ return Promise.resolve([]); }, sync: function(){ return Promise.resolve(); },
     export: function(opts){ return state.find(opts&&opts.type?{type:opts.type}:null).then(function(r){return JSON.stringify(r);}); },
     exportBundle: function(opts){
@@ -203,12 +228,13 @@ function buildDevBridgeScript(appId, appName, appVersion, schemaVersion) {
       save: function(filename,content){
         var blob=content instanceof ArrayBuffer?new Blob([content]):new Blob([String(content)],{type:'text/plain'});
         var a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(blob),download:filename});
-        a.click(); URL.revokeObjectURL(a.href); return Promise.resolve();
+        a.click(); URL.revokeObjectURL(a.href); return Promise.resolve(true);
       },
       open: function(opts){
         return new Promise(function(res){
           var inp=document.createElement('input'); inp.type='file';
-          if (opts&&opts.filter) inp.accept=Array.isArray(opts.filter)?opts.filter.join(','):opts.filter;
+          var acc=opts&&(opts.accept||opts.filter);
+          if (acc) inp.accept=Array.isArray(acc)?acc.join(','):acc;
           inp.onchange=function(){ var f=inp.files&&inp.files[0]; if(!f){res(null);return;} var r=new FileReader(); r.onload=function(){res({name:f.name,content:r.result});}; r.readAsArrayBuffer(f); };
           inp.click();
         });
@@ -251,15 +277,11 @@ function dotuix(options = {}) {
             appConfig = result.config;
           }
         } catch (e) {
-          resolved.logger.warn(
-            `[dotuix] Failed to load uix.config.ts: ${e.message}`
-          );
+          resolved.logger.warn(`[dotuix] Failed to load uix.config.ts: ${e.message}`);
         }
       } else if (existsSync(manifestPath)) {
         try {
-          baseManifest = JSON.parse(
-            await readFile(manifestPath, "utf-8")
-          );
+          baseManifest = JSON.parse(await readFile(manifestPath, "utf-8"));
         } catch {
           resolved.logger.warn("[dotuix] Failed to parse manifest.json");
         }
@@ -297,11 +319,7 @@ function dotuix(options = {}) {
         return;
       }
       await mkdir(outDir, { recursive: true });
-      await writeFile(
-        join(outDir, "manifest.json"),
-        JSON.stringify(manifest, null, 2),
-        "utf-8"
-      );
+      await writeFile(join(outDir, "manifest.json"), JSON.stringify(manifest, null, 2), "utf-8");
       const rawName = manifest.id.split(".").pop() ?? "app";
       const appName = rawName.replace(/[^a-z0-9_-]/gi, "-").toLowerCase();
       const uixOut = options.output ?? join(root, `${appName}.uix`);

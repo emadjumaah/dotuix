@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
-import type { Order } from "../types";
-import { bodyOf, qar } from "../utils";
+import { useEffect, useState } from 'react';
+import type { Order } from '../types';
+import { bodyOf, qar } from '../utils';
 
 export function ReportsScreen() {
   const [hasLicense, setHasLicense] = useState<boolean | null>(null);
@@ -10,9 +10,9 @@ export function ReportsScreen() {
     (async () => {
       // ── License gate: uix.license.hasFeature("reports") ──────
       let licensed = false;
-      if (typeof uix !== "undefined" && uix?.license?.hasFeature) {
+      if (typeof uix !== 'undefined' && uix?.license?.hasFeature) {
         try {
-          licensed = await uix.license.hasFeature("reports");
+          licensed = await uix.license.hasFeature('reports');
         } catch {
           licensed = false;
         }
@@ -21,9 +21,9 @@ export function ReportsScreen() {
       if (!licensed) return;
 
       // ── Load orders for analytics ─────────────────────────────
-      if (typeof uix !== "undefined" && uix?.state) {
-        const recs = await uix.state.find({ type: "order" });
-        setOrders(recs.map((r) => ({ id: r.id, ...bodyOf<Omit<Order, "id">>(r) })));
+      if (typeof uix !== 'undefined' && uix?.state) {
+        const recs = await uix.state.find({ type: 'order' });
+        setOrders(recs.map((r) => ({ id: r.id, ...bodyOf<Omit<Order, 'id'>>(r) })));
       }
     })();
   }, []);
@@ -31,8 +31,12 @@ export function ReportsScreen() {
   if (hasLicense === null) {
     return (
       <div className="orders-screen">
-        <div className="orders-header"><h2 className="screen-title">Reports</h2></div>
-        <div className="orders-empty"><div className="spinner" /></div>
+        <div className="orders-header">
+          <h2 className="screen-title">Reports</h2>
+        </div>
+        <div className="orders-empty">
+          <div className="spinner" />
+        </div>
       </div>
     );
   }
@@ -40,16 +44,24 @@ export function ReportsScreen() {
   if (!hasLicense) {
     return (
       <div className="orders-screen">
-        <div className="orders-header"><h2 className="screen-title">Reports</h2></div>
+        <div className="orders-header">
+          <h2 className="screen-title">Reports</h2>
+        </div>
         <div className="locked-screen">
-          <svg className="lock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+          <svg
+            className="lock-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1.5}
+          >
             <rect x="3" y="11" width="18" height="11" rx="2" />
             <path d="M7 11V7a5 5 0 0 1 10 0v4" />
           </svg>
           <h2>Reports require a license</h2>
           <p>
-            Upgrade your Nexus POS license to unlock daily &amp; weekly sales
-            analytics, top products, and staff performance.
+            Upgrade your Nexus POS license to unlock daily &amp; weekly sales analytics, top
+            products, and staff performance.
           </p>
           <code className="license-hint">uix.license.hasFeature("reports")</code>
         </div>
@@ -58,14 +70,16 @@ export function ReportsScreen() {
   }
 
   // ── Compute analytics ────────────────────────────────────────
-  const now   = new Date();
-  const today = new Date(now); today.setHours(0, 0, 0, 0);
-  const week  = new Date(today); week.setDate(week.getDate() - 6);
+  const now = new Date();
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+  const week = new Date(today);
+  week.setDate(week.getDate() - 6);
 
   const todayOrders = orders.filter((o) => new Date(o.createdAt) >= today);
-  const weekOrders  = orders.filter((o) => new Date(o.createdAt) >= week);
-  const sum         = (arr: Order[]) => arr.reduce((s, o) => s + (o.total ?? 0), 0);
-  const avg         = orders.length ? sum(orders) / orders.length : 0;
+  const weekOrders = orders.filter((o) => new Date(o.createdAt) >= week);
+  const sum = (arr: Order[]) => arr.reduce((s, o) => s + (o.total ?? 0), 0);
+  const avg = orders.length ? sum(orders) / orders.length : 0;
 
   const productQty: Record<string, number> = {};
   const productRev: Record<string, number> = {};
@@ -81,7 +95,9 @@ export function ReportsScreen() {
 
   return (
     <div className="reports-screen">
-      <div className="orders-header"><h2 className="screen-title">Reports</h2></div>
+      <div className="orders-header">
+        <h2 className="screen-title">Reports</h2>
+      </div>
       <div className="reports-content">
         <div className="stats-grid">
           <div className="stat-card">

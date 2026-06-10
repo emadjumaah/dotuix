@@ -2,14 +2,7 @@
   "name": "@dotuix/cli",
   "version": "0.1.9",
   "description": "CLI for packing, unpacking, and validating .uix files",
-  "keywords": [
-    "uix",
-    "dotuix",
-    "cli",
-    "offline",
-    "kiosk",
-    "portable"
-  ],
+  "keywords": ["uix", "dotuix", "cli", "offline", "kiosk", "portable"],
   "homepage": "https://github.com/dotuix/dotuix#readme",
   "repository": {
     "type": "git",
@@ -21,10 +14,7 @@
   "bin": {
     "dotuix": "./dist/index.js"
   },
-  "files": [
-    "dist",
-    "README.md"
-  ],
+  "files": ["dist", "README.md"],
   "publishConfig": {
     "access": "public"
   },
@@ -38,7 +28,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@dotuix/core": "^0.2.6"
+    "@dotuix/core": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

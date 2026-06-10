@@ -1,27 +1,23 @@
-import { isAbsolute, posix, relative, resolve } from "node:path";
+import { isAbsolute, posix, relative, resolve } from 'node:path';
 
 const WINDOWS_DRIVE_RE = /^[a-zA-Z]:/;
 
 export function normalizeArchivePath(path: string): string {
-  const candidate = path.replace(/\\/g, "/");
+  const candidate = path.replace(/\\/g, '/');
 
-  if (!candidate || candidate.includes("\0")) {
-    throw new Error("Unsafe archive path: path must be non-empty");
+  if (!candidate || candidate.includes('\0')) {
+    throw new Error('Unsafe archive path: path must be non-empty');
   }
 
-  if (
-    candidate.startsWith("/") ||
-    candidate.startsWith("//") ||
-    WINDOWS_DRIVE_RE.test(path)
-  ) {
+  if (candidate.startsWith('/') || candidate.startsWith('//') || WINDOWS_DRIVE_RE.test(path)) {
     throw new Error(`Unsafe archive path: ${path}`);
   }
 
   const normalized = posix.normalize(candidate);
   if (
-    normalized === "." ||
-    normalized === ".." ||
-    normalized.startsWith("../") ||
+    normalized === '.' ||
+    normalized === '..' ||
+    normalized.startsWith('../') ||
     posix.isAbsolute(normalized)
   ) {
     throw new Error(`Unsafe archive path: ${path}`);
@@ -36,7 +32,7 @@ export function resolveSafeChild(root: string, childPath: string): string {
   const target = resolve(safeRoot, safeChild);
   const rel = relative(safeRoot, target);
 
-  if (rel === "" || rel.startsWith("..") || isAbsolute(rel)) {
+  if (rel === '' || rel.startsWith('..') || isAbsolute(rel)) {
     throw new Error(`Path escapes target directory: ${childPath}`);
   }
 

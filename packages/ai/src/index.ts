@@ -1,12 +1,12 @@
-import { pack, resolveSafeChild } from "@dotuix/core";
-import { writeFile, mkdir, rm } from "node:fs/promises";
-import { dirname, join } from "node:path";
-import { tmpdir } from "node:os";
-import { randomUUID } from "node:crypto";
-import type { UIXAiMeta } from "@dotuix/core";
+import { randomUUID } from 'node:crypto';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { pack, resolveSafeChild } from '@dotuix/core';
+import type { UIXAiMeta } from '@dotuix/core';
 
 export type { UIXAiMeta };
-export type { Manifest } from "@dotuix/core";
+export type { Manifest } from '@dotuix/core';
 
 // ---------------------------------------------------------------------------
 // createUIX
@@ -66,21 +66,19 @@ export interface CreateUIXOptions {
  * @returns Absolute path to the packed `.uix` file.
  */
 export async function createUIX(options: CreateUIXOptions): Promise<string> {
-  const { manifest, files, output, generatedBy = "@dotuix/ai" } = options;
+  const { manifest, files, output, generatedBy = '@dotuix/ai' } = options;
 
   const workDir = join(tmpdir(), `dotuix-${randomUUID()}`);
   const projectName =
-    typeof manifest.name === "string"
-      ? manifest.name.toLowerCase().replace(/[^a-z0-9-]/g, "-")
+    typeof manifest.name === 'string'
+      ? manifest.name.toLowerCase().replace(/[^a-z0-9-]/g, '-')
       : randomUUID();
   const projectDir = resolveSafeChild(workDir, projectName);
   await mkdir(projectDir, { recursive: true });
 
   // Stamp ai provenance
   const ai: UIXAiMeta = {
-    ...(typeof manifest.ai === "object" && manifest.ai !== null
-      ? (manifest.ai as UIXAiMeta)
-      : {}),
+    ...(typeof manifest.ai === 'object' && manifest.ai !== null ? (manifest.ai as UIXAiMeta) : {}),
     generatedBy,
     generatedAt: new Date().toISOString(),
   };
@@ -88,11 +86,7 @@ export async function createUIX(options: CreateUIXOptions): Promise<string> {
   const stamped = { ...manifest, ai };
 
   // Write manifest
-  await writeFile(
-    join(projectDir, "manifest.json"),
-    JSON.stringify(stamped, null, 2),
-    "utf8",
-  );
+  await writeFile(join(projectDir, 'manifest.json'), JSON.stringify(stamped, null, 2), 'utf8');
 
   // Write source files
   for (const [relativePath, content] of Object.entries(files)) {
@@ -101,7 +95,7 @@ export async function createUIX(options: CreateUIXOptions): Promise<string> {
     if (parent !== projectDir) {
       await mkdir(parent, { recursive: true });
     }
-    await writeFile(fullPath, content, "utf8");
+    await writeFile(fullPath, content, 'utf8');
   }
 
   // Pack

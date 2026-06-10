@@ -231,17 +231,23 @@ underscore) as the preferred form.
 
 The bridge MUST NOT be accessible outside the running `.uix` application.
 
-### 4.2 All Bridge Methods Return Promises
+### 4.2 Bridge Method Return Values
 
-Every bridge method is asynchronous and returns a `Promise`. Applications MUST `await`
-bridge calls or handle them with `.then()`.
+Every bridge method that performs I/O is asynchronous and returns a `Promise`.
+Applications MUST `await` such calls or handle them with `.then()`.
+
+The following accessors are **synchronous** (they read values already known at
+load time and return them directly, not a `Promise`): `uix.manifest()`,
+`uix.viewer.version()`, `uix.schema.version()`, `uix.schema.storedVersion()`,
+and `uix.schema.needsUpgrade()`.
 
 ### 4.3 `uix.manifest()`
 
-Returns the parsed `manifest.json` as a plain JavaScript object.
+Returns the parsed `manifest.json` as a plain JavaScript object. **Synchronous** —
+the value is available at load time, so no `await` is required.
 
 ```
-uix.manifest() → Promise<object>
+uix.manifest() → object
 ```
 
 ### 4.4 `uix.data` — Read-Only Data Bridge
@@ -780,12 +786,33 @@ The `signature` block enables tamper detection via Ed25519 public-key signatures
 }
 ```
 
-The signature covers a canonical JSON digest of all files in the archive (excluding
-`manifest.json` itself). The exact digest algorithm is:
+The signature covers a deterministic, line-oriented payload that binds both the
+manifest and every other file in the archive. The exact payload (the
+`DOTUIX-SIGN-V1` format) is constructed as follows:
 
-1. For each file in the archive (sorted by path, case-sensitive), compute SHA-256 of its contents.
-2. Construct a JSON object: `{ "<path>": "<hex-sha256>", ... }`
-3. Sign the UTF-8 encoding of this JSON with the Ed25519 private key.
+1. Remove the `signature` field from the manifest object, then serialise the
+   manifest to compact JSON with **all object keys sorted recursively** (no
+   insignificant whitespace). Call this `<manifest-canon>`.
+2. Take every file in the archive **except** `manifest.json` and `state.db`,
+   sort the paths case-sensitively (ascending), and for each compute the
+   lowercase hex SHA-256 of its contents.
+3. Build the payload as these UTF-8 lines joined by a single `\n` (LF), with
+   **no trailing newline**:
+
+   ```
+   DOTUIX-SIGN-V1
+   manifest:<manifest-canon>
+   file:<path-1>:<hex-sha256>
+   file:<path-2>:<hex-sha256>
+   ...
+   ```
+
+4. Sign the UTF-8 bytes of this payload with the Ed25519 private key; encode the
+   64-byte signature as base64url (no padding) in `signature.value`.
+
+`manifest.json` is excluded because it carries the signature itself (its content
+is bound via `<manifest-canon>`), and `state.db` is excluded because it is
+user-mutable at runtime — a signature must survive normal state writes.
 
 A compliant viewer with signature verification MUST:
 

@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
-import type { Order } from "../types";
-import { bodyOf, qar, fmtTime } from "../utils";
+import { useEffect, useState } from 'react';
+import type { Order } from '../types';
+import { bodyOf, fmtTime, qar } from '../utils';
 
 export function OrdersScreen() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -8,17 +8,17 @@ export function OrdersScreen() {
 
   useEffect(() => {
     (async () => {
-      if (typeof uix === "undefined" || !uix?.state) return;
-      const recs = await uix.state.find({ type: "order" });
+      if (typeof uix === 'undefined' || !uix?.state) return;
+      const recs = await uix.state.find({ type: 'order' });
       const parsed = recs
-        .map((r) => ({ id: r.id, ...bodyOf<Omit<Order, "id">>(r) }))
+        .map((r) => ({ id: r.id, ...bodyOf<Omit<Order, 'id'>>(r) }))
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       setOrders(parsed);
     })();
   }, []);
 
   function printReceipt() {
-    if (typeof uix !== "undefined" && uix?.print) {
+    if (typeof uix !== 'undefined' && uix?.print) {
       uix.print();
     } else {
       window.print();
@@ -44,7 +44,7 @@ export function OrdersScreen() {
         ) : (
           orders.map((o) => (
             <div key={o.id} className="order-row" onClick={() => setSelected(o)}>
-              <span className="order-receipt-no">{o.receiptNo ?? "—"}</span>
+              <span className="order-receipt-no">{o.receiptNo ?? '—'}</span>
               <span className="order-time">{fmtTime(o.createdAt)}</span>
               <span className="order-staff">{o.staff}</span>
               <span className="order-method">{o.method}</span>
@@ -56,34 +56,62 @@ export function OrdersScreen() {
 
       {/* ── Receipt Modal ──────────────────────────────── */}
       {selected && (
-        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setSelected(null)}>
+        <div
+          className="modal-overlay"
+          onClick={(e) => e.target === e.currentTarget && setSelected(null)}
+        >
           <div className="receipt-modal">
             <div className="receipt-header">
               <span className="receipt-title">{selected.receiptNo}</span>
-              <button className="close-btn" onClick={() => setSelected(null)}>×</button>
+              <button className="close-btn" onClick={() => setSelected(null)}>
+                ×
+              </button>
             </div>
 
             <div className="receipt-meta">
-              <div className="receipt-row"><span>Date</span><span>{fmtTime(selected.createdAt)}</span></div>
-              <div className="receipt-row"><span>Staff</span><span>{selected.staff}</span></div>
-              <div className="receipt-row"><span>Method</span><span style={{ textTransform: "capitalize" }}>{selected.method}</span></div>
+              <div className="receipt-row">
+                <span>Date</span>
+                <span>{fmtTime(selected.createdAt)}</span>
+              </div>
+              <div className="receipt-row">
+                <span>Staff</span>
+                <span>{selected.staff}</span>
+              </div>
+              <div className="receipt-row">
+                <span>Method</span>
+                <span style={{ textTransform: 'capitalize' }}>{selected.method}</span>
+              </div>
             </div>
 
             <hr className="receipt-divider" />
 
             {selected.items.map((item, i) => (
               <div key={i} className="receipt-row">
-                <span>{item.qty}× {item.name}</span>
+                <span>
+                  {item.qty}× {item.name}
+                </span>
                 <span>{qar(item.price * item.qty)}</span>
               </div>
             ))}
 
             <hr className="receipt-divider" />
 
-            <div className="receipt-row"><span>Subtotal</span><span>{qar(selected.subtotal)}</span></div>
-            <div className="receipt-row"><span>Discount</span><span>- {qar(selected.discount ?? 0)}</span></div>
-            <div className="receipt-row"><span>Tax ({selected.taxRatePct ?? 0}%)</span><span>{qar(selected.tax ?? 0)}</span></div>
-            <div className="receipt-row bold"><span>Total</span><span>{qar(selected.total)}</span></div>
+            <div className="receipt-row">
+              <span>Subtotal</span>
+              <span>{qar(selected.subtotal)}</span>
+            </div>
+            <div className="receipt-row">
+              <span>Discount</span>
+              <span>- {qar(selected.discount ?? 0)}</span>
+            </div>
+            <div className="receipt-row">
+              <span>Tax ({selected.taxRatePct ?? 0}%)</span>
+              <span>{qar(selected.tax ?? 0)}</span>
+            </div>
+            <div className="receipt-row bold">
+              <span>Total</span>
+              <span>{qar(selected.total)}</span>
+            </div>
 
             <div className="receipt-actions">
               <button className="print-btn" onClick={printReceipt}>

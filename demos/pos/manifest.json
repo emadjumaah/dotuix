@@ -9,14 +9,7 @@
   "state": {
     "mode": "device"
   },
-  "permissions": [
-    "print",
-    "file-save",
-    "file-open",
-    "notifications",
-    "fullscreen",
-    "raw-sql"
-  ],
+  "permissions": ["print", "file-save", "file-open", "notifications", "fullscreen", "raw-sql"],
   "network": "blocked",
   "theme": {
     "color": "#c8a96e",

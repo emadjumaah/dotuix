@@ -117,8 +117,8 @@ importers:
   packages/cli:
     dependencies:
       '@dotuix/core':
-        specifier: ^0.2.6
-        version: 0.2.6
+        specifier: workspace:*
+        version: link:../core
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -194,8 +194,8 @@ importers:
   packages/vite-plugin:
     dependencies:
       '@dotuix/core':
-        specifier: ^0.2.6
-        version: 0.2.6
+        specifier: workspace:*
+        version: link:../core
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -406,10 +406,6 @@ packages:
 
   '@changesets/write@0.4.0':
     resolution: {integrity: sha512-CdTLvIOPiCNuH71pyDu3rA+Q0n65cmAbXnwWH84rKGiFumFzkmHNT8KHTMEchcxN+Kl8I54xGUhJ7l3E7X396Q==}
-
-  '@dotuix/core@0.2.6':
-    resolution: {integrity: sha512-odXzs7D3fZG0Vm5dfurF8KvdefSIf2j2eK1EU9vaXZ6wWu/miDNaGqpkQJlcMIivkWYpCMKw2dEjI4tJTPvYBw==}
-    engines: {node: '>=22.0.0'}
 
   '@emnapi/runtime@1.10.0':
     resolution: {integrity: sha512-ewvYlk86xUoGI0zQRNq/mC+16R1QeDlKQy21Ki3oSYXNgLb45GV1P6A0M+/s6nyCuNDqe5VpaY84BzXGwVbwFA==}
@@ -3053,14 +3049,6 @@ snapshots:
       fs-extra: 7.0.1
       human-id: 4.1.3
       prettier: 2.8.8
-
-  '@dotuix/core@0.2.6':
-    dependencies:
-      '@noble/curves': 2.2.0
-      '@noble/hashes': 2.2.0
-      fflate: 0.8.3
-      sql.js: 1.14.1
-      zod: 3.25.76
 
   '@emnapi/runtime@1.10.0':
     dependencies:

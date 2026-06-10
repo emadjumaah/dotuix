@@ -6,7 +6,7 @@
  * Full type docs: https://github.com/dotuix/dotuix/tree/main/packages/types
  */
 
-const app = document.getElementById("app")!;
+const app = document.getElementById('app')!;
 
 app.innerHTML = `
   <h1>__NAME__</h1>
@@ -14,24 +14,22 @@ app.innerHTML = `
   <div id="records"></div>
 `;
 
-const addBtn = document.getElementById("add-btn")!;
-const list = document.getElementById("records")!;
+const addBtn = document.getElementById('add-btn')!;
+const list = document.getElementById('records')!;
 
 async function render() {
   const records = await uix.state.find({
-    type: "item",
-    orderBy: { field: "created_at", direction: "desc" },
+    type: 'item',
+    orderBy: { field: 'created_at', direction: 'desc' },
   });
   list.innerHTML = records.length
-    ? records
-        .map((r) => `<div class="record-card">${r.id} — ${r.body}</div>`)
-        .join("")
+    ? records.map((r) => `<div class="record-card">${r.id} — ${r.body}</div>`).join('')
     : `<p style="color:#666">No items yet. Click the button to add one.</p>`;
 }
 
-addBtn.addEventListener("click", async () => {
+addBtn.addEventListener('click', async () => {
   await uix.state.insert({
-    type: "item",
+    type: 'item',
     body: JSON.stringify({ label: `Item ${Date.now()}` }),
   });
   await render();

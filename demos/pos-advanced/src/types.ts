@@ -2,7 +2,7 @@ export interface Staff {
   id: string;
   name: string;
   pin: string;
-  role: "manager" | "cashier" | "supervisor";
+  role: 'manager' | 'cashier' | 'supervisor';
   color: string;
 }
 
@@ -60,9 +60,9 @@ export interface Order {
   taxRatePct: number;
   staff: string;
   staffId: string;
-  method: "cash" | "card" | "split";
-  status: "complete" | "refunded";
+  method: 'cash' | 'card' | 'split';
+  status: 'complete' | 'refunded';
   createdAt: string;
 }
 
-export type Screen = "catalog" | "checkout" | "orders" | "reports" | "settings";
+export type Screen = 'catalog' | 'checkout' | 'orders' | 'reports' | 'settings';

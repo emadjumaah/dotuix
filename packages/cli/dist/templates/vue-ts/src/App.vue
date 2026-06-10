@@ -1,19 +1,19 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
-import type { UIXRecord } from "@dotuix/types";
+import type { UIXRecord } from '@dotuix/types';
+import { onMounted, ref } from 'vue';
 
 const items = ref<UIXRecord[]>([]);
 
 async function load() {
   items.value = await uix.state.find({
-    type: "item",
-    orderBy: { field: "created_at", direction: "desc" },
+    type: 'item',
+    orderBy: { field: 'created_at', direction: 'desc' },
   });
 }
 
 async function addItem() {
   await uix.state.insert({
-    type: "item",
+    type: 'item',
     body: JSON.stringify({ label: `Item ${Date.now()}` }),
   });
   await load();

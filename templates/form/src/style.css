@@ -1,4 +1,10 @@
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
 
 body {
   font-family: system-ui, -apple-system, sans-serif;
@@ -15,7 +21,10 @@ header {
   border-bottom: 1px solid #e0e3ea;
 }
 
-h1 { font-size: 1.4rem; color: #4f8ef7; }
+h1 {
+  font-size: 1.4rem;
+  color: #4f8ef7;
+}
 
 #form-el {
   padding: 2rem;
@@ -39,7 +48,8 @@ label span {
   letter-spacing: 0.04em;
 }
 
-input, textarea {
+input,
+textarea {
   border: 1.5px solid #d0d4df;
   border-radius: 6px;
   padding: 0.6rem 0.75rem;
@@ -50,12 +60,17 @@ input, textarea {
   transition: border-color 0.15s;
   resize: vertical;
 }
-input:focus, textarea:focus {
+input:focus,
+textarea:focus {
   outline: none;
   border-color: #4f8ef7;
 }
 
-.actions { display: flex; align-items: center; gap: 1rem; }
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
 
 button {
   background: #4f8ef7;
@@ -67,7 +82,9 @@ button {
   font-weight: 600;
   cursor: pointer;
 }
-button:hover { opacity: 0.85; }
+button:hover {
+  opacity: 0.85;
+}
 
 #print-btn {
   background: transparent;
@@ -77,12 +94,21 @@ button:hover { opacity: 0.85; }
   padding: 0.4rem 0.9rem;
 }
 
-.saved-msg { font-size: 0.88rem; color: #2a9d5c; font-weight: 600; }
+.saved-msg {
+  font-size: 0.88rem;
+  color: #2a9d5c;
+  font-weight: 600;
+}
 
 @media print {
-  header button { display: none; }
-  .actions      { display: none; }
-  input, textarea {
+  header button {
+    display: none;
+  }
+  .actions {
+    display: none;
+  }
+  input,
+  textarea {
     border: none;
     padding: 0;
     background: transparent;

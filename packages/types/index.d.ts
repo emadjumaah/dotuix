@@ -20,7 +20,7 @@ import type {
   ManifestSecurityContract,
   ManifestSignatureContract,
   ManifestUixVersion,
-} from "./generated/manifest-contract.generated";
+} from './generated/manifest-contract.generated';
 
 // ---------------------------------------------------------------------------
 // Shared record types
@@ -54,9 +54,13 @@ export interface FindQuery {
   where?: Record<string, unknown>;
   /**
    * Sort by a top-level column (`"id"`, `"type"`, `"created_at"`, `"updated_at"`)
-   * or a body field name, or an object `{ field: string; direction: "asc" | "desc" }`.
+   * or a body field name. Accepts a string (shorthand for ascending), a single
+   * `{ field, direction }` object, or an array of them for multi-field ordering.
    */
-  orderBy?: string | { field: string; direction: "asc" | "desc" };
+  orderBy?:
+    | string
+    | { field: string; direction: 'asc' | 'desc' }
+    | Array<{ field: string; direction: 'asc' | 'desc' }>;
   limit?: number;
   /** Rows to skip before returning results (requires `limit`). */
   offset?: number;
@@ -65,14 +69,14 @@ export interface FindQuery {
 /** A single operation in a `state.transaction()` batch. */
 export type TransactionOp =
   | {
-      op: "upsert";
+      op: 'upsert';
       id?: string;
       type: string;
       body: string | Record<string, unknown>;
     }
-  | { op: "insert"; type: string; body: string | Record<string, unknown> }
-  | { op: "update"; id: string; body: string | Record<string, unknown> }
-  | { op: "delete"; id: string };
+  | { op: 'insert'; type: string; body: string | Record<string, unknown> }
+  | { op: 'update'; id: string; body: string | Record<string, unknown> }
+  | { op: 'delete'; id: string };
 
 /** Result returned by `state.importBundle()`. */
 export interface ImportResult {
@@ -120,7 +124,12 @@ export interface OpenedFile {
 
 /** Options for `uix.file.open()`. */
 export interface OpenFileOptions {
-  /** File type filter shown in the OS open dialog, e.g. `[".csv", ".json"]`. */
+  /** File-type filter, e.g. `".csv,.json"` (spec §4.14). */
+  accept?: string;
+  /**
+   * @deprecated Use `accept` (a comma-separated string) per spec §4.14.
+   * Retained for backwards compatibility with older mock bridges.
+   */
   filter?: string[];
 }
 
@@ -149,7 +158,7 @@ export interface UIXManifest {
   signature?: ManifestSignatureContract;
   ai?: ManifestAiContract;
   state?: {
-    mode?: "file" | "device";
+    mode?: 'file' | 'device';
     seed?: boolean;
   };
   license?: {
@@ -176,8 +185,8 @@ export interface UIXStateBridge {
    * Returns the created record.
    */
   insert(input: UpsertInput): Promise<UIXRecord>;
-  /** Update the body of an existing record. */
-  update(id: string, body: string | Record<string, unknown>): Promise<void>;
+  /** Update the body of an existing record. Returns the updated record (spec §4.5). */
+  update(id: string, body: string | Record<string, unknown>): Promise<UIXRecord>;
   /**
    * Insert or replace a record. If a record with the given `id` exists it is
    * replaced; otherwise a new record is created.
@@ -207,7 +216,7 @@ export interface UIXStateBridge {
    * Export records as a JSON string.
    * Requires the `raw-sql` permission when no `type` filter is provided.
    */
-  export(opts?: { type?: string; before?: number }): Promise<string>;
+  export(opts?: { type?: string; before?: string }): Promise<string>;
   /**
    * Execute a raw SQL query. Requires the `raw-sql` permission.
    * Returns an array of row objects.
@@ -221,7 +230,7 @@ export interface UIXStateBridge {
    * Sync state to/from the local dotuix sync server.
    * Requires the `local-sync` permission.
    */
-  sync(): Promise<{ pushed: number; pulled: number; serverTime: number }>;
+  sync(): Promise<{ pushed: number; pulled: number }>;
 }
 
 /** `uix.data.*` — read-only access to the app's seed / static data DB. */
@@ -240,9 +249,7 @@ export interface UIXSchemaBridge {
    * when `manifest.schemaVersion` is higher than the version stored in
    * `state.db`. Runs inside a transaction — throw to rollback.
    */
-  onUpgrade(
-    handler: (ctx: UpgradeContext) => void | Promise<void>,
-  ): Promise<void>;
+  onUpgrade(handler: (ctx: UpgradeContext) => void | Promise<void>): Promise<void>;
   /** Schema version declared in `manifest.json`. */
   version(): number;
   /** Schema version stored in the user's `state.db`. */
@@ -284,13 +291,10 @@ export interface UIXFileBridge {
   /**
    * Open a native save dialog and write `content` to the chosen path.
    * `content` may be an `ArrayBuffer` or a plain string.
+   * Returns `true` if the file was saved, `false` if the user cancelled (spec §4.13).
    * Requires the `file-save` permission.
    */
-  save(
-    filename: string,
-    content: ArrayBuffer | string,
-    mimeType?: string,
-  ): Promise<void>;
+  save(filename: string, content: ArrayBuffer | string, mimeType?: string): Promise<boolean>;
   /**
    * Open a native file-picker dialog and return the selected file's bytes.
    * Returns `null` when the user cancels.
@@ -350,10 +354,11 @@ export interface UIXBridge {
 
   /**
    * Send an OS notification. Requires the `notifications` permission.
-   * @param title - Notification title.
-   * @param body  - Optional notification body text.
+   * @param title   - Notification title.
+   * @param body    - Notification body text.
+   * @param options - Optional `{ icon }` hint (spec §4.16).
    */
-  notify(title: string, body?: string): Promise<void>;
+  notify(title: string, body: string, options?: { icon?: string }): Promise<void>;
 
   /** Trigger the browser print dialog. Requires the `print` permission. */
   print(): void;
@@ -396,7 +401,7 @@ export interface UIXConfig {
   /** Monotonically increasing integer. Increment whenever stored record schemas change. */
   schemaVersion?: number;
   state?: {
-    mode?: "file" | "device";
+    mode?: 'file' | 'device';
     seed?: boolean;
   };
   permissions?: UIXPermission[];

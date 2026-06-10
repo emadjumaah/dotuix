@@ -4,14 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev":   "dotuix dev",
+    "dev": "dotuix dev",
     "build": "dotuix build",
-    "pack":  "dotuix pack dist"
+    "pack": "dotuix pack dist"
   },
   "devDependencies": {
-    "@dotuix/types":       "^0.1.0",
+    "@dotuix/types": "^0.1.0",
     "@dotuix/vite-plugin": "^0.1.1",
-    "typescript":          "^5.8.3",
-    "vite":                "^6.0.0"
+    "typescript": "^5.8.3",
+    "vite": "^6.0.0"
   }
 }

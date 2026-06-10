@@ -1,76 +1,76 @@
-import { useState, useEffect, useCallback } from "react";
-import type { Staff, Category, Product, TaxRate, CartItem, Screen } from "./types";
-import { bodyOf, initials } from "./utils";
-import { DEV_CATEGORIES, DEV_PRODUCTS, DEV_TAX_RATES, DEV_STAFF } from "./devData";
-import { LoginScreen } from "./screens/LoginScreen";
-import { CatalogScreen } from "./screens/CatalogScreen";
-import { CheckoutScreen } from "./screens/CheckoutScreen";
-import { OrdersScreen } from "./screens/OrdersScreen";
-import { ReportsScreen } from "./screens/ReportsScreen";
-import { SettingsScreen } from "./screens/SettingsScreen";
+import { useCallback, useEffect, useState } from 'react';
+import { DEV_CATEGORIES, DEV_PRODUCTS, DEV_STAFF, DEV_TAX_RATES } from './devData';
+import { CatalogScreen } from './screens/CatalogScreen';
+import { CheckoutScreen } from './screens/CheckoutScreen';
+import { LoginScreen } from './screens/LoginScreen';
+import { OrdersScreen } from './screens/OrdersScreen';
+import { ReportsScreen } from './screens/ReportsScreen';
+import { SettingsScreen } from './screens/SettingsScreen';
+import type { CartItem, Category, Product, Screen, Staff, TaxRate } from './types';
+import { bodyOf, initials } from './utils';
 
 // ── Catalog data is loaded once from data.db ──────────────────────────────
 async function loadCatalog() {
-  if (typeof uix === "undefined" || !uix?.data) {
+  if (typeof uix === 'undefined' || !uix?.data) {
     return { categories: DEV_CATEGORIES, products: DEV_PRODUCTS, taxRates: DEV_TAX_RATES };
   }
   const [catRecs, prodRecs, taxRecs] = await Promise.all([
-    uix.data.find({ type: "category" }),
-    uix.data.find({ type: "product" }),
-    uix.data.find({ type: "tax_rate" }),
+    uix.data.find({ type: 'category' }),
+    uix.data.find({ type: 'product' }),
+    uix.data.find({ type: 'tax_rate' }),
   ]);
   const categories = catRecs
-    .map((r) => ({ id: r.id, ...bodyOf<Omit<Category, "id">>(r) }))
+    .map((r) => ({ id: r.id, ...bodyOf<Omit<Category, 'id'>>(r) }))
     .sort((a, b) => (a.sort ?? 99) - (b.sort ?? 99));
-  const products = prodRecs.map((r) => ({ id: r.id, ...bodyOf<Omit<Product, "id">>(r) }));
-  const taxRates = taxRecs.map((r) => ({ id: r.id, ...bodyOf<Omit<TaxRate, "id">>(r) }));
+  const products = prodRecs.map((r) => ({ id: r.id, ...bodyOf<Omit<Product, 'id'>>(r) }));
+  const taxRates = taxRecs.map((r) => ({ id: r.id, ...bodyOf<Omit<TaxRate, 'id'>>(r) }));
   return { categories, products, taxRates };
 }
 
 // ── Staff lives in state.db; seeded on first run ──────────────────────────
 async function loadOrSeedStaff(): Promise<Staff[]> {
-  if (typeof uix === "undefined" || !uix?.state) return DEV_STAFF;
-  const recs = await uix.state.find({ type: "staff_member" });
-  if (recs.length > 0) return recs.map((r) => ({ id: r.id, ...bodyOf<Omit<Staff, "id">>(r) }));
+  if (typeof uix === 'undefined' || !uix?.state) return DEV_STAFF;
+  const recs = await uix.state.find({ type: 'staff_member' });
+  if (recs.length > 0) return recs.map((r) => ({ id: r.id, ...bodyOf<Omit<Staff, 'id'>>(r) }));
   // First run — seed defaults
-  const defaults: Omit<Staff, "id">[] = [
-    { name: "Manager",    pin: "1234", role: "manager",    color: "#c8a96e" },
-    { name: "Cashier",    pin: "5678", role: "cashier",    color: "#5588ff" },
-    { name: "Supervisor", pin: "9999", role: "supervisor", color: "#55aa77" },
+  const defaults: Omit<Staff, 'id'>[] = [
+    { name: 'Manager', pin: '1234', role: 'manager', color: '#c8a96e' },
+    { name: 'Cashier', pin: '5678', role: 'cashier', color: '#5588ff' },
+    { name: 'Supervisor', pin: '9999', role: 'supervisor', color: '#55aa77' },
   ];
-  for (const s of defaults) await uix.state.insert({ type: "staff_member", body: s });
-  const seeded = await uix.state.find({ type: "staff_member" });
-  return seeded.map((r) => ({ id: r.id, ...bodyOf<Omit<Staff, "id">>(r) }));
+  for (const s of defaults) await uix.state.insert({ type: 'staff_member', body: s });
+  const seeded = await uix.state.find({ type: 'staff_member' });
+  return seeded.map((r) => ({ id: r.id, ...bodyOf<Omit<Staff, 'id'>>(r) }));
 }
 
 // ── Nav icons (inline SVG paths to avoid external deps) ──────────────────
 const NAV_ITEMS: { screen: Screen; label: string; path: string }[] = [
   {
-    screen: "catalog",
-    label: "Catalog",
-    path: "M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z",
+    screen: 'catalog',
+    label: 'Catalog',
+    path: 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z',
   },
   {
-    screen: "orders",
-    label: "Orders",
-    path: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H9H8",
+    screen: 'orders',
+    label: 'Orders',
+    path: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H9H8',
   },
   {
-    screen: "reports",
-    label: "Reports",
-    path: "M18 20V10M12 20V4M6 20v-6",
+    screen: 'reports',
+    label: 'Reports',
+    path: 'M18 20V10M12 20V4M6 20v-6',
   },
 ];
 
 export function App() {
-  const [loading, setLoading]     = useState(true);
-  const [session, setSession]     = useState<Staff | null>(null);
-  const [screen, setScreen]       = useState<Screen>("catalog");
+  const [loading, setLoading] = useState(true);
+  const [session, setSession] = useState<Staff | null>(null);
+  const [screen, setScreen] = useState<Screen>('catalog');
   const [categories, setCategories] = useState<Category[]>([]);
-  const [products, setProducts]   = useState<Product[]>([]);
-  const [taxRates, setTaxRates]   = useState<TaxRate[]>([]);
-  const [allStaff, setAllStaff]   = useState<Staff[]>([]);
-  const [cart, setCart]           = useState<CartItem[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [taxRates, setTaxRates] = useState<TaxRate[]>([]);
+  const [allStaff, setAllStaff] = useState<Staff[]>([]);
+  const [cart, setCart] = useState<CartItem[]>([]);
   const [receiptCounter, setReceiptCounter] = useState(1);
 
   // ── Bootstrap ──────────────────────────────────────────────────────────
@@ -83,12 +83,10 @@ export function App() {
       setAllStaff(staff);
 
       // Load persisted receipt counter
-      if (typeof uix !== "undefined" && uix?.state) {
-        const settings = await uix.state.find({ type: "setting" });
-        const rc = settings.find(
-          (s) => (bodyOf<{ key: string }>(s)).key === "receipt_counter",
-        );
-        if (rc) setReceiptCounter(Number((bodyOf<{ value: string }>(rc)).value) || 1);
+      if (typeof uix !== 'undefined' && uix?.state) {
+        const settings = await uix.state.find({ type: 'setting' });
+        const rc = settings.find((s) => bodyOf<{ key: string }>(s).key === 'receipt_counter');
+        if (rc) setReceiptCounter(Number(bodyOf<{ value: string }>(rc).value) || 1);
       }
       setLoading(false);
     })();
@@ -99,9 +97,7 @@ export function App() {
     setCart((prev) => {
       const existing = prev.find((i) => i.productId === product.id);
       return existing
-        ? prev.map((i) =>
-            i.productId === product.id ? { ...i, qty: i.qty + 1 } : i,
-          )
+        ? prev.map((i) => (i.productId === product.id ? { ...i, qty: i.qty + 1 } : i))
         : [
             ...prev,
             {
@@ -120,9 +116,7 @@ export function App() {
       const item = prev.find((i) => i.productId === productId);
       if (!item) return prev;
       if (item.qty + delta <= 0) return prev.filter((i) => i.productId !== productId);
-      return prev.map((i) =>
-        i.productId === productId ? { ...i, qty: i.qty + delta } : i,
-      );
+      return prev.map((i) => (i.productId === productId ? { ...i, qty: i.qty + delta } : i));
     });
   }, []);
 
@@ -135,12 +129,12 @@ export function App() {
       taxRateId: string;
       taxRateName: string;
       taxRatePct: number;
-      method: "cash" | "card" | "split";
+      method: 'cash' | 'card' | 'split';
     }) => {
       const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
       const total = subtotal - orderData.discountAmt + orderData.taxAmt;
       const counter = receiptCounter;
-      const receiptNo = "R-" + String(counter).padStart(4, "0");
+      const receiptNo = `R-${String(counter).padStart(4, '0')}`;
 
       const order = {
         receiptNo,
@@ -152,40 +146,38 @@ export function App() {
         taxRateId: orderData.taxRateId,
         taxRateName: orderData.taxRateName,
         taxRatePct: orderData.taxRatePct,
-        staff: session?.name ?? "Unknown",
-        staffId: session?.id ?? "",
+        staff: session?.name ?? 'Unknown',
+        staffId: session?.id ?? '',
         method: orderData.method,
-        status: "complete" as const,
+        status: 'complete' as const,
         createdAt: new Date().toISOString(),
       };
 
-      if (typeof uix !== "undefined" && uix?.state) {
-        await uix.state.insert({ type: "order", body: order });
+      if (typeof uix !== 'undefined' && uix?.state) {
+        await uix.state.insert({ type: 'order', body: order });
         // Persist receipt counter
-        const settings = await uix.state.find({ type: "setting" });
-        const rcRec = settings.find(
-          (s) => (bodyOf<{ key: string }>(s)).key === "receipt_counter",
-        );
+        const settings = await uix.state.find({ type: 'setting' });
+        const rcRec = settings.find((s) => bodyOf<{ key: string }>(s).key === 'receipt_counter');
         const nextCounter = counter + 1;
         if (rcRec) {
           await uix.state.update(rcRec.id, {
-            key: "receipt_counter",
+            key: 'receipt_counter',
             value: String(nextCounter),
           });
         } else {
           await uix.state.insert({
-            type: "setting",
-            body: { key: "receipt_counter", value: String(nextCounter) },
+            type: 'setting',
+            body: { key: 'receipt_counter', value: String(nextCounter) },
           });
         }
         setReceiptCounter(nextCounter);
       }
 
       clearCart();
-      setScreen("orders");
+      setScreen('orders');
 
-      if (typeof uix !== "undefined" && uix?.notify) {
-        uix.notify({ title: "Order complete", body: `${receiptNo} · QAR ${total.toFixed(2)}` });
+      if (typeof uix !== 'undefined' && uix?.notify) {
+        uix.notify({ title: 'Order complete', body: `${receiptNo} · QAR ${total.toFixed(2)}` });
       }
     },
     [cart, receiptCounter, session, clearCart],
@@ -207,7 +199,7 @@ export function App() {
         staff={allStaff}
         onLogin={(s) => {
           setSession(s);
-          setScreen("catalog");
+          setScreen('catalog');
         }}
       />
     );
@@ -228,7 +220,7 @@ export function App() {
         {NAV_ITEMS.map(({ screen: s, label, path }) => (
           <button
             key={s}
-            className={`nav-item${screen === s ? " active" : ""}`}
+            className={`nav-item${screen === s ? ' active' : ''}`}
             onClick={() => setScreen(s)}
             title={label}
           >
@@ -236,15 +228,13 @@ export function App() {
               <path d={path} />
             </svg>
             <span>{label}</span>
-            {s === "catalog" && cartCount > 0 && (
-              <span className="nav-badge">{cartCount}</span>
-            )}
+            {s === 'catalog' && cartCount > 0 && <span className="nav-badge">{cartCount}</span>}
           </button>
         ))}
 
         <button
-          className={`nav-item${screen === "reports" ? " active" : ""}`}
-          onClick={() => setScreen("reports")}
+          className={`nav-item${screen === 'reports' ? ' active' : ''}`}
+          onClick={() => setScreen('reports')}
           title="Reports"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
@@ -258,8 +248,8 @@ export function App() {
         <div className="nav-spacer" />
 
         <button
-          className={`nav-item${screen === "settings" ? " active" : ""}`}
-          onClick={() => setScreen("settings")}
+          className={`nav-item${screen === 'settings' ? ' active' : ''}`}
+          onClick={() => setScreen('settings')}
           title="Settings"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
@@ -281,7 +271,7 @@ export function App() {
 
       {/* ── Screens ─────────────────────────────────────────────── */}
       <main className="content">
-        {screen === "catalog" && (
+        {screen === 'catalog' && (
           <CatalogScreen
             categories={categories}
             products={products}
@@ -290,24 +280,21 @@ export function App() {
             onAddToCart={addToCart}
             onUpdateQty={updateCartQty}
             onClearCart={clearCart}
-            onCheckout={() => setScreen("checkout")}
+            onCheckout={() => setScreen('checkout')}
           />
         )}
-        {screen === "checkout" && (
+        {screen === 'checkout' && (
           <CheckoutScreen
             cart={cart}
             taxRates={taxRates}
-            onBack={() => setScreen("catalog")}
+            onBack={() => setScreen('catalog')}
             onComplete={completeOrder}
           />
         )}
-        {screen === "orders" && <OrdersScreen />}
-        {screen === "reports" && <ReportsScreen />}
-        {screen === "settings" && (
-          <SettingsScreen
-            staff={allStaff}
-            onSignOut={() => setSession(null)}
-          />
+        {screen === 'orders' && <OrdersScreen />}
+        {screen === 'reports' && <ReportsScreen />}
+        {screen === 'settings' && (
+          <SettingsScreen staff={allStaff} onSignOut={() => setSession(null)} />
         )}
       </main>
     </div>

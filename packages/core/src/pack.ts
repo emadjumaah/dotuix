@@ -1,54 +1,38 @@
-import {
-  readdirSync,
-  readFileSync,
-  renameSync,
-  statSync,
-  writeFileSync,
-} from "node:fs";
-import { join, relative, extname } from "node:path";
-import { zipSync } from "fflate";
-import { parseManifest } from "./manifest.js";
+import { readFileSync, readdirSync, renameSync, statSync, writeFileSync } from 'node:fs';
+import { extname, join, relative } from 'node:path';
+import { zipSync } from 'fflate';
+import { parseManifest } from './manifest.js';
 
 /** File extensions stored without compression (already compressed or binary). */
 const STORE_EXTENSIONS = new Set([
-  ".db",
-  ".png",
-  ".jpg",
-  ".jpeg",
-  ".webp",
-  ".gif",
-  ".svg",
-  ".mp4",
-  ".mp3",
-  ".webm",
-  ".wasm",
+  '.db',
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.webp',
+  '.gif',
+  '.svg',
+  '.mp4',
+  '.mp3',
+  '.webm',
+  '.wasm',
 ]);
 
 /** Directories never included in the archive. */
-const EXCLUDED_DIRS = new Set([
-  "node_modules",
-  ".git",
-  "dist",
-  ".turbo",
-  ".vscode",
-  ".idea",
-]);
+const EXCLUDED_DIRS = new Set(['node_modules', '.git', 'dist', '.turbo', '.vscode', '.idea']);
 
 function compressionLevel(filename: string): 0 | 6 {
   return STORE_EXTENSIONS.has(extname(filename).toLowerCase()) ? 0 : 6;
 }
 
-function walkDir(
-  dir: string,
-  base: string,
-): { relPath: string; absPath: string }[] {
+function walkDir(dir: string, base: string): { relPath: string; absPath: string }[] {
   const results: { relPath: string; absPath: string }[] = [];
 
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (EXCLUDED_DIRS.has(entry.name)) continue;
 
     const absPath = join(dir, entry.name);
-    const relPath = relative(base, absPath).replace(/\\/g, "/");
+    const relPath = relative(base, absPath).replace(/\\/g, '/');
 
     if (entry.isDirectory()) {
       results.push(...walkDir(absPath, base));
@@ -71,10 +55,10 @@ function walkDir(
  */
 export async function pack(srcDir: string, outputPath: string): Promise<void> {
   // Read and validate manifest
-  const manifestPath = join(srcDir, "manifest.json");
+  const manifestPath = join(srcDir, 'manifest.json');
   let rawManifest: string;
   try {
-    rawManifest = readFileSync(manifestPath, "utf-8");
+    rawManifest = readFileSync(manifestPath, 'utf-8');
   } catch {
     throw new Error(`manifest.json not found in ${srcDir}`);
   }

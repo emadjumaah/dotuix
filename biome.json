@@ -1,12 +1,33 @@
 {
   "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
   "organizeImports": {
     "enabled": true
   },
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true
+      "recommended": true,
+      "a11y": {
+        "useButtonType": "off",
+        "noSvgWithoutTitle": "off",
+        "useSemanticElements": "off",
+        "noAutofocus": "off",
+        "useKeyWithClickEvents": "off"
+      },
+      "complexity": {
+        "noForEach": "off"
+      },
+      "style": {
+        "noNonNullAssertion": "off"
+      },
+      "suspicious": {
+        "noArrayIndexKey": "off"
+      }
     }
   },
   "formatter": {
@@ -24,8 +45,12 @@
   "files": {
     "ignore": [
       "dist/**",
+      "**/dist/**",
       "node_modules/**",
-      ".turbo/**"
+      ".turbo/**",
+      "**/target/**",
+      "**/gen/schemas/**",
+      "**/generated/**"
     ]
   }
 }
