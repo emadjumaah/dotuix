@@ -1,6 +1,6 @@
 {
   "name": "@dotuix/vite-plugin",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Vite plugin — build React/Vue/Svelte/TS apps and output a .uix file",
   "type": "module",
   "exports": {
@@ -11,7 +11,9 @@
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts --clean",
     "dev": "tsup src/index.ts --format esm --dts --watch",
@@ -29,6 +31,10 @@
     "typescript": "^5.8.3",
     "vite": "^6.3.5"
   },
-  "keywords": ["vite-plugin", "dotuix", "uix"],
+  "keywords": [
+    "vite-plugin",
+    "dotuix",
+    "uix"
+  ],
   "license": "MIT"
 }

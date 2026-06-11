@@ -1,4 +1,4 @@
-# @dotuix/cli
+# @dotuix/types
 
 ## 0.2.0
 
@@ -30,15 +30,3 @@
 
   **@dotuix/vite-plugin** — dev mock bridge matches the contract (`where` operators,
   `insertMany`/`size`/`file.save`/`file.open` shapes).
-
-### Patch Changes
-
-- Updated dependencies [69e9812]
-  - @dotuix/core@0.3.0
-
-## 0.1.7
-
-### Patch Changes
-
-- Updated dependencies
-  - @dotuix/core@0.2.4
