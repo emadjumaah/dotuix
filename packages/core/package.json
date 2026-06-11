@@ -2,15 +2,7 @@
   "name": "@dotuix/core",
   "version": "0.3.0",
   "description": "Core library for packing, unpacking, and validating .uix files",
-  "keywords": [
-    "uix",
-    "dotuix",
-    "offline",
-    "kiosk",
-    "sqlite",
-    "zip",
-    "portable"
-  ],
+  "keywords": ["uix", "dotuix", "offline", "kiosk", "sqlite", "zip", "portable"],
   "homepage": "https://github.com/dotuix/dotuix#readme",
   "repository": {
     "type": "git",
@@ -29,10 +21,7 @@
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": [
-    "dist",
-    "README.md"
-  ],
+  "files": ["dist", "README.md"],
   "publishConfig": {
     "access": "public"
   },

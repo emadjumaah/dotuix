@@ -464,15 +464,26 @@ fn fallback_bridge_script_source(manifest_json: &str, stored_schema_version: u32
     out
 }
 
-fn html_with_external_bridge_loader(html_bytes: &[u8], bridge_file_name: &str) -> Vec<u8> {
+fn html_with_external_bridge_loader(
+    html_bytes: &[u8],
+    bridge_file_name: &str,
+    csp: &str,
+) -> Vec<u8> {
+    // The Windows fallback serves extracted files over http://asset.localhost,
+    // so the per-manifest CSP that uix:// responses carry as a header never
+    // applies here. Inject it as a <meta http-equiv> so network policy
+    // (e.g. "blocked") is still enforced on the fallback render path.
+    let csp_meta =
+        format!(r#"<meta http-equiv="Content-Security-Policy" content="{csp}">"#);
     let script_tag = format!(r#"<script src="./{bridge_file_name}"></script>"#);
+    let head_inject = format!("{csp_meta}{script_tag}");
     let html = String::from_utf8_lossy(html_bytes);
 
     if html.contains("<head>") {
-        html.replacen("<head>", &format!("<head>{script_tag}"), 1)
+        html.replacen("<head>", &format!("<head>{head_inject}"), 1)
             .into_bytes()
     } else {
-        let mut out = script_tag.into_bytes();
+        let mut out = head_inject.into_bytes();
         out.extend_from_slice(html_bytes);
         out
     }
@@ -2394,6 +2405,18 @@ fn get_manifest(state: State<'_, AppState>) -> Result<serde_json::Value, String>
 /// Prepare a temporary on-disk web root for iframe fallback mode and
 /// return the absolute file path to the requested entry document.
 #[tauri::command]
+/// Extract the archive to a temp web root and serve it over asset.localhost.
+/// Used as the primary render path on Windows (WebView2 has trouble with the
+/// custom `uix://` protocol).
+///
+/// SECURITY NOTE: this writes the archive's files — including any files that
+/// were decrypted in memory after PIN unlock, and `data.db` — to `$TEMP`.
+/// Cleanup is best-effort (see `clear_temp_web_root`), so a crash can leave
+/// plaintext content on disk. The per-manifest CSP is now injected as a meta
+/// tag here (network policy is enforced), but the at-rest exposure of decrypted
+/// content remains. Recommended hardening (needs Windows verification): keep
+/// `encryptedPaths`/`data.db` out of the temp root and serve those specific
+/// files via the in-memory `uix://` path even on Windows.
 fn prepare_iframe_fallback_entry(
     entry_path: String,
     state: State<'_, AppState>,
@@ -2443,6 +2466,11 @@ fn prepare_iframe_fallback_entry(
 
     let bridge_file_name = "__dotuix_viewer_bridge.js";
     let bridge_script = fallback_bridge_script_source(&manifest_json, stored_schema_version);
+    // Per-manifest CSP injected into each fallback HTML document. Defaults to the
+    // network-blocked policy if the manifest cannot be parsed (fail-closed).
+    let fallback_csp: &str = serde_json::from_str::<serde_json::Value>(&manifest_json)
+        .map(|m| csp_for_manifest(&m))
+        .unwrap_or_else(|_| csp_for_network(false));
     let mut bridge_written_dirs = HashSet::<std::path::PathBuf>::new();
 
     for (raw_path, bytes) in files {
@@ -2477,7 +2505,7 @@ fn prepare_iframe_fallback_entry(
                 })?;
             }
 
-            html_with_external_bridge_loader(&bytes, bridge_file_name)
+            html_with_external_bridge_loader(&bytes, bridge_file_name, fallback_csp)
         } else {
             bytes
         };
@@ -4391,6 +4419,30 @@ mod tests {
             .unwrap()
             .insert("value".into(), json!(bad_b64));
         assert!(verify_signature(&files, &manifest).is_err());
+    }
+
+    #[test]
+    fn windows_fallback_html_injects_csp_meta_and_bridge() {
+        let html = b"<html><head><title>x</title></head><body>hi</body></html>";
+        let out = html_with_external_bridge_loader(html, "__b.js", csp_for_network(false));
+        let s = String::from_utf8(out).unwrap();
+
+        // CSP meta and the external bridge loader are both injected into <head>.
+        assert!(s.contains(r#"<meta http-equiv="Content-Security-Policy""#));
+        assert!(s.contains(r#"<script src="./__b.js"></script>"#));
+        // Blocked-mode policy must not permit external network on the fallback path.
+        assert!(s.contains("connect-src 'self' uix:"));
+        assert!(!s.contains("connect-src 'self' uix: https:"));
+        // The CSP must appear before any body content so it governs the document.
+        assert!(s.find("Content-Security-Policy").unwrap() < s.find("<body>").unwrap());
+    }
+
+    #[test]
+    fn windows_fallback_html_uses_allowed_csp_when_network_allowed() {
+        let html = b"<head></head>";
+        let out = html_with_external_bridge_loader(html, "__b.js", csp_for_network(true));
+        let s = String::from_utf8(out).unwrap();
+        assert!(s.contains("connect-src 'self' uix: https: wss:"));
     }
 
     #[test]
