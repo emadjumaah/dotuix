@@ -1,0 +1,43 @@
+name: CI
+
+# Fast quality gate for every PR and push to main: lint, build/typecheck the
+# packages, and run the JS unit tests. The heavier Rust / Tauri / web-build
+# checks live in desktop-contract-regression.yml.
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  lint-and-test:
+    name: Lint, build, unit tests
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint (biome)
+        run: pnpm lint
+
+      - name: Build packages (also typechecks via DTS)
+        run: pnpm --filter "./packages/*" build
+
+      - name: Core unit tests
+        run: pnpm --filter @dotuix/core test
+
+      - name: CLI end-to-end tests
+        run: pnpm --filter @dotuix/cli test
