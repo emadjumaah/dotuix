@@ -76,6 +76,15 @@ server.tool(
     'Read this before generating any .uix files.',
   {},
   async () => {
+    // Prefer the spec bundled with this package — fully offline, always matches
+    // the installed version, and never drifts from a remote copy.
+    try {
+      const here = dirname(fileURLToPath(import.meta.url));
+      const bundled = await readFile(join(here, 'llms.txt'), 'utf8');
+      if (bundled.trim()) return { content: [{ type: 'text', text: bundled }] };
+    } catch {
+      /* bundled spec missing — fall through to network */
+    }
     try {
       const res = await fetch(SPEC_URL);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);

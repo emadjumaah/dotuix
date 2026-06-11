@@ -641,6 +641,60 @@ fn today_iso() -> String {
     format!("{:04}-{:02}-{:02}", year, month, day + 1)
 }
 
+/// Days from the Unix epoch (1970-01-01) to a civil date (proleptic Gregorian).
+/// Howard Hinnant's algorithm — no external crate needed.
+fn days_from_civil(y: i64, m: u32, d: u32) -> i64 {
+    let y = if m <= 2 { y - 1 } else { y };
+    let era = (if y >= 0 { y } else { y - 399 }) / 400;
+    let yoe = (y - era * 400) as i64; // [0, 399]
+    let doy = (153 * (if m > 2 { m - 3 } else { m + 9 }) as i64 + 2) / 5 + d as i64 - 1; // [0, 365]
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy; // [0, 146096]
+    era * 146097 + doe - 719468
+}
+
+/// Parse an ISO-8601 date or date-time to epoch **seconds** (UTC).
+/// Accepts `YYYY-MM-DD` (treated as 00:00:00Z) and
+/// `YYYY-MM-DDTHH:MM:SS[.fff][Z|±HH:MM]`. Returns None if unparseable.
+fn iso8601_to_epoch_secs(s: &str) -> Option<i64> {
+    let bytes = s.as_bytes();
+    if bytes.len() < 10 {
+        return None;
+    }
+    let y: i64 = s.get(0..4)?.parse().ok()?;
+    let mo: u32 = s.get(5..7)?.parse().ok()?;
+    let d: u32 = s.get(8..10)?.parse().ok()?;
+    if mo == 0 || mo > 12 || d == 0 || d > 31 {
+        return None;
+    }
+    let mut secs = days_from_civil(y, mo, d) * 86400;
+
+    if s.len() >= 19 && (bytes[10] == b'T' || bytes[10] == b' ') {
+        let hh: i64 = s.get(11..13)?.parse().ok()?;
+        let mi: i64 = s.get(14..16)?.parse().ok()?;
+        let ss: i64 = s.get(17..19)?.parse().ok()?;
+        secs += hh * 3600 + mi * 60 + ss;
+
+        // Optional timezone offset (anything after the seconds / fraction).
+        let rest = &s[19..];
+        let tz = rest.trim_start_matches(|c: char| c == '.' || c.is_ascii_digit());
+        if let Some(sign_idx) = tz.find(|c| c == '+' || c == '-') {
+            let sign = if tz.as_bytes()[sign_idx] == b'+' { 1 } else { -1 };
+            let off = &tz[sign_idx + 1..];
+            if off.len() >= 2 {
+                let oh: i64 = off.get(0..2).and_then(|x| x.parse().ok()).unwrap_or(0);
+                let om: i64 = off
+                    .get(3..5)
+                    .or_else(|| off.get(2..4))
+                    .and_then(|x| x.parse().ok())
+                    .unwrap_or(0);
+                // Subtract the offset to convert local → UTC.
+                secs -= sign * (oh * 3600 + om * 60);
+            }
+        }
+    }
+    Some(secs)
+}
+
 /// Parse a human-readable duration ("30d", "12h", "1y") into seconds.
 fn parse_duration(s: &str) -> Result<u64, String> {
     if s.len() < 2 {
@@ -1283,9 +1337,15 @@ fn probe_uix_inner(path: &str, app: &AppHandle, state: &AppState) -> Result<Load
         .unwrap_or("unknown")
         .to_string();
 
-    // --- Expiry check ---
+    // --- Expiry check (date-TIME precise, spec §2.3) ---
     if let Some(exp) = manifest.get("expires").and_then(|v| v.as_str()) {
-        if exp < today_iso().as_str() {
+        // A timed expiry must be honoured to the second, not just the day.
+        // Fall back to a lexical day compare only if the value is unparseable.
+        let expired = match iso8601_to_epoch_secs(exp) {
+            Some(exp_secs) => now_ms() / 1000 >= exp_secs,
+            None => exp < today_iso().as_str(),
+        };
+        if expired {
             emit_desktop_event(
                 "desktop.trust_gate.blocked",
                 "warn",
@@ -1535,6 +1595,21 @@ fn complete_load(
         .get("sync").and_then(|s| s.get("secret")).and_then(|v| v.as_str())
         .map(str::to_string);
     *state.license_info.lock().unwrap() = license_payload;
+
+    // --- Screenshot / screen-recording protection (spec §6.1) ---
+    // Applied on every load (true when requested, false otherwise) so protection
+    // never leaks from a protected file to the next one. Best-effort: platforms
+    // without OS support simply ignore it.
+    {
+        let protect = manifest
+            .get("security")
+            .and_then(|s| s.get("screenshot"))
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        if let Some(win) = app.get_webview_window("main") {
+            let _ = win.set_content_protected(protect);
+        }
+    }
 
     emit_desktop_event(
         "desktop.trust_gate.passed",
@@ -1862,7 +1937,11 @@ fn bridge_script(manifest_json: &str, stored_schema_version: u32) -> String {
     notify: function (title, body, opts) {{
       return relay('uix_notify', {{ title: title, body: body }});
     }},
-    print: function () {{ window.print(); }},
+    print: function () {{
+      if (_perms.indexOf('print') === -1)
+        throw new Error("Permission denied: 'print' not declared in manifest.json permissions.");
+      window.print();
+    }},
     exit:  function () {{ return relay('uix_exit', {{}}); }},
     schema: {{
       onUpgrade: function(fn) {{
@@ -4419,6 +4498,24 @@ mod tests {
             .unwrap()
             .insert("value".into(), json!(bad_b64));
         assert!(verify_signature(&files, &manifest).is_err());
+    }
+
+    #[test]
+    fn iso8601_parsing_handles_date_and_datetime() {
+        // Date-only is treated as midnight UTC.
+        assert_eq!(iso8601_to_epoch_secs("1970-01-01"), Some(0));
+        assert_eq!(iso8601_to_epoch_secs("2000-01-01"), Some(946_684_800));
+        // Date-time with Z.
+        assert_eq!(iso8601_to_epoch_secs("2000-01-01T00:00:00Z"), Some(946_684_800));
+        assert_eq!(iso8601_to_epoch_secs("1970-01-01T01:00:00Z"), Some(3600));
+        // The M4 bug: same-day times used to compare equal (date-only). Now distinct.
+        let morning = iso8601_to_epoch_secs("2026-06-10T09:00:00Z").unwrap();
+        let evening = iso8601_to_epoch_secs("2026-06-10T21:00:00Z").unwrap();
+        assert_eq!(evening - morning, 12 * 3600);
+        // Timezone offset is normalised to UTC.
+        assert_eq!(iso8601_to_epoch_secs("2000-01-01T01:00:00+01:00"), Some(946_684_800));
+        // Unparseable input returns None (caller falls back to a day compare).
+        assert_eq!(iso8601_to_epoch_secs("not-a-date"), None);
     }
 
     #[test]

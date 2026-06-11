@@ -931,6 +931,68 @@ only new IDs are inserted. No records are deleted.
 
 ---
 
+## 12. License (Optional)
+
+The `license` block is an OPTIONAL extension for publishers who wish to gate a
+file behind an offline, cryptographically-verified entitlement token. Regular
+applications MUST omit it. It has no effect on files that do not carry it.
+
+### 12.1 Manifest `license` Object
+
+```json
+{
+  "license": {
+    "required": true,
+    "publisherKey": "ed25519:<base64url-public-key>",
+    "appId": "com.example.app"
+  }
+}
+```
+
+| Field          | Type    | Description                                                                                                             |
+| -------------- | ------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `required`     | boolean | When `true`, a compliant viewer MUST refuse to open the file unless a valid license token for `appId` is installed.      |
+| `publisherKey` | string  | Ed25519 public key (`"ed25519:<base64url>"`) the viewer uses to verify the license token's signature. No DNS ownership is asserted. |
+| `appId`        | string  | Application id the license must match (defaults to `manifest.id`).                                                       |
+
+### 12.2 License Token (`.uixlicense`)
+
+A license token is a detached, signed JSON document installed into the viewer's
+application-data directory (out of band — it is NOT packed into the `.uix`). Its
+payload identifies the licensee and entitlements; it is signed with the
+publisher's Ed25519 private key and verified against `manifest.license.publisherKey`.
+
+| Payload field | Type     | Description                                              |
+| ------------- | -------- | -------------------------------------------------------- |
+| `appId`       | string   | Must match `manifest.license.appId`.                     |
+| `issuedTo`    | string   | Licensee identity (display only).                        |
+| `issuedAt`    | string   | ISO-8601 issue timestamp.                                |
+| `expiresAt`   | string?  | ISO-8601 expiry, or omitted for a perpetual license.     |
+| `features`    | string[] | Capability flags the application may query.              |
+| `deviceId`    | string?  | When present, binds the license to a single device id.   |
+
+Verification is fully offline. A compliant viewer MUST reject a token whose
+signature is invalid, whose `appId` does not match, that has expired, or that is
+device-bound to a different device.
+
+### 12.3 `uix.license` Bridge
+
+When a license is present, the viewer exposes a read-only `uix.license` bridge:
+
+| Method                       | Returns                          | Description                                              |
+| ---------------------------- | -------------------------------- | -------------------------------------------------------- |
+| `uix.license.get()`          | `Promise<LicenseInfo \| null>`   | The verified license, or `null` if none is installed.    |
+| `uix.license.hasFeature(f)`  | `Promise<boolean>`               | `true` when the verified license lists feature `f`.      |
+
+`LicenseInfo` is `{ issuedTo, issuedAt, expiresAt?, features, valid }`. These
+methods never perform network requests.
+
+> **Note:** the `license` extension is implemented by the desktop and mobile
+> viewers and tooled by the `dotuix issue-license` / `dotuix device-id` CLI
+> commands. The web viewer does not currently verify licenses.
+
+---
+
 ## Appendix A — Example manifest.json
 
 ### Minimal (no security)
