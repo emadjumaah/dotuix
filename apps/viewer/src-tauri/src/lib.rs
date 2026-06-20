@@ -3997,8 +3997,36 @@ fn get_db_paths(state: State<AppState>) -> DbPaths {
 // DB viewer commands
 // ---------------------------------------------------------------------------
 
+/// Confine the DbViewer commands to the loaded app's OWN databases. The bridge
+/// relay already blocks app content from reaching these host-only commands, but
+/// defend in depth: never open a caller-supplied path that is not one of the two
+/// known DB paths for the currently loaded app.
+/// Pure check (unit-testable): is `db_path` exactly one of the two known DB paths?
+fn db_path_is_known(
+    state_path: Option<&std::path::Path>,
+    data_path: Option<&std::path::Path>,
+    db_path: &str,
+) -> bool {
+    let eq = |p: Option<&std::path::Path>| match p {
+        Some(p) => p.to_string_lossy() == db_path,
+        None => false,
+    };
+    eq(state_path) || eq(data_path)
+}
+
+fn ensure_app_db_path(state: &State<AppState>, db_path: &str) -> Result<(), String> {
+    let sp = state.state_db_path.lock().unwrap();
+    let dp = state.data_db_path.lock().unwrap();
+    if db_path_is_known(sp.as_deref(), dp.as_deref(), db_path) {
+        Ok(())
+    } else {
+        Err("Access denied: only the loaded app's database may be accessed.".into())
+    }
+}
+
 #[tauri::command]
-fn db_load_all(db_path: String) -> Result<DbLoadResult, String> {
+fn db_load_all(db_path: String, state: State<AppState>) -> Result<DbLoadResult, String> {
+    ensure_app_db_path(&state, &db_path)?;
     if !std::path::Path::new(&db_path).exists() {
         return Ok(DbLoadResult { exists: false, records: vec![] });
     }
@@ -4026,7 +4054,13 @@ fn db_load_all(db_path: String) -> Result<DbLoadResult, String> {
 }
 
 #[tauri::command]
-fn db_update_record(db_path: String, id: String, body: String) -> Result<(), String> {
+fn db_update_record(
+    db_path: String,
+    id: String,
+    body: String,
+    state: State<AppState>,
+) -> Result<(), String> {
+    ensure_app_db_path(&state, &db_path)?;
     let conn = rusqlite::Connection::open(&db_path).map_err(|e| e.to_string())?;
     let now = now_ms();
     conn.execute(
@@ -4038,7 +4072,8 @@ fn db_update_record(db_path: String, id: String, body: String) -> Result<(), Str
 }
 
 #[tauri::command]
-fn db_delete_record(db_path: String, id: String) -> Result<(), String> {
+fn db_delete_record(db_path: String, id: String, state: State<AppState>) -> Result<(), String> {
+    ensure_app_db_path(&state, &db_path)?;
     let conn = rusqlite::Connection::open(&db_path).map_err(|e| e.to_string())?;
     conn.execute("DELETE FROM records WHERE id = ?1", rusqlite::params![id])
         .map_err(|e| e.to_string())?;
@@ -4046,7 +4081,13 @@ fn db_delete_record(db_path: String, id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn db_insert_record(db_path: String, r#type: String, body: String) -> Result<Record, String> {
+fn db_insert_record(
+    db_path: String,
+    r#type: String,
+    body: String,
+    state: State<AppState>,
+) -> Result<Record, String> {
+    ensure_app_db_path(&state, &db_path)?;
     let conn = rusqlite::Connection::open(&db_path).map_err(|e| e.to_string())?;
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS records (\
@@ -4498,6 +4539,22 @@ mod tests {
             .unwrap()
             .insert("value".into(), json!(bad_b64));
         assert!(verify_signature(&files, &manifest).is_err());
+    }
+
+    #[test]
+    fn db_path_confinement_only_allows_the_loaded_apps_dbs() {
+        use std::path::Path;
+        let state = Path::new("/app/data/com.x.app/state.db");
+        let data = Path::new("/tmp/dotuix_data/data.db");
+        // The app's own DBs are allowed.
+        assert!(db_path_is_known(Some(state), Some(data), "/app/data/com.x.app/state.db"));
+        assert!(db_path_is_known(Some(state), Some(data), "/tmp/dotuix_data/data.db"));
+        // Any other path — another app's state, system files — is rejected.
+        assert!(!db_path_is_known(Some(state), Some(data), "/app/data/com.y.evil/state.db"));
+        assert!(!db_path_is_known(Some(state), Some(data), "/etc/passwd"));
+        assert!(!db_path_is_known(Some(state), Some(data), ""));
+        // With no app loaded, nothing is allowed.
+        assert!(!db_path_is_known(None, None, "/app/data/com.x.app/state.db"));
     }
 
     #[test]

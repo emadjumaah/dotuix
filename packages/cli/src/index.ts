@@ -21,6 +21,7 @@
 
 import { spawn, spawnSync } from 'node:child_process';
 import {
+  chmodSync,
   cpSync,
   existsSync,
   mkdirSync,
@@ -819,7 +820,14 @@ function cmdKeygen(args: string[]) {
   }
 
   const kp = generateKeyPair();
-  writeFileSync(privPath, kp.privateKey, 'utf8');
+  // The private key is the Ed25519 signing seed — write it owner-read/write
+  // only (0600) so a leaked key cannot forge .uix signatures or licenses.
+  writeFileSync(privPath, kp.privateKey, { encoding: 'utf8', mode: 0o600 });
+  try {
+    chmodSync(privPath, 0o600); // enforce even if a prior umask widened it
+  } catch {
+    /* non-POSIX (e.g. Windows) — best effort */
+  }
   writeFileSync(pubPath, kp.publicKey, 'utf8');
 
   console.log(`

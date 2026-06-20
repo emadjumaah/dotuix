@@ -80,6 +80,52 @@ type FrameDiagnostic = {
 const FRAME_INIT_TIMEOUT_MS = 8000;
 const AUTO_SYNC_INTERVAL_MS = 10_000;
 
+/**
+ * The ONLY commands the embedded .uix app may invoke through the postMessage
+ * bridge relay. Everything else — db_* (arbitrary SQLite file access), pick_*,
+ * load_uix, get_db_paths, unlock_with_pin, get_device_id, … — is host-only and
+ * MUST NOT be reachable from sandboxed app content. The relay is the sole trust
+ * boundary between untrusted app JS and native Tauri commands.
+ */
+const BRIDGE_COMMAND_ALLOWLIST: ReadonlySet<string> = new Set([
+  'data_find',
+  'data_get',
+  'data_count',
+  'data_raw',
+  'state_find',
+  'state_get',
+  'state_count',
+  'state_insert',
+  'state_insert_many',
+  'state_update',
+  'state_upsert',
+  'state_delete',
+  'state_purge',
+  'state_clear',
+  'state_reset',
+  'state_transaction',
+  'state_size',
+  'state_vacuum',
+  'state_export_bundle',
+  'state_import_bundle',
+  'state_raw',
+  'state_sync',
+  'schema_upgrade_begin',
+  'schema_upgrade_commit',
+  'schema_upgrade_rollback',
+  'license_get',
+  'license_has_feature',
+  'uix_notify',
+  'uix_open_url',
+  'uix_open_file',
+  'uix_save_file',
+  'uix_set_window_title',
+  'uix_enter_fullscreen',
+  'uix_exit_fullscreen',
+  'uix_toggle_fullscreen',
+  'uix_exit',
+]);
+
 function normalizeEntryPath(entry: string | undefined): string {
   const raw = (entry ?? 'index.html').trim();
   if (!raw) return 'index.html';
@@ -552,6 +598,22 @@ export default function App() {
           severity: 'warn',
           reason: 'invalid_payload',
         });
+        return;
+      }
+
+      if (!BRIDGE_COMMAND_ALLOWLIST.has(cmd)) {
+        emitDesktopEvent({
+          code: 'desktop.bridge.payload_rejected',
+          severity: 'warn',
+          reason: 'command_not_allowed',
+          metadata: {
+            cmd,
+          },
+        });
+        iframeRef.current?.contentWindow?.postMessage(
+          { __dotuix_reply: true, id, error: `Command not permitted: ${cmd}` },
+          replyTargetOrigin,
+        );
         return;
       }
 

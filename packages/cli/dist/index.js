@@ -3,6 +3,7 @@
 // src/index.ts
 import { spawn, spawnSync } from "child_process";
 import {
+  chmodSync,
   cpSync,
   existsSync,
   mkdirSync,
@@ -653,7 +654,11 @@ function cmdKeygen(args) {
     process.exit(1);
   }
   const kp = generateKeyPair();
-  writeFileSync(privPath, kp.privateKey, "utf8");
+  writeFileSync(privPath, kp.privateKey, { encoding: "utf8", mode: 384 });
+  try {
+    chmodSync(privPath, 384);
+  } catch {
+  }
   writeFileSync(pubPath, kp.publicKey, "utf8");
   console.log(`
   ${c.green("\u2713")} Key pair generated
